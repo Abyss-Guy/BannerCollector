@@ -67,8 +67,12 @@ namespace BannerCollector
                 BannerLoad.LoadBanners();
                 foreach (BannerInfo banner in bannerList)
                 {
+                    // Restore only the collected count from the save. All static metadata
+                    // (Index, ModName, ItemName, IsHardMode, UseItemIcon) is always taken
+                    // from code so that mod updates (e.g. Calamity reordering its banner
+                    // atlas) can never desync banners loaded from an older save file.
                     if (BannerLoad.BannerDict.ContainsKey(banner.ItemId))
-                        BannerLoad.BannerDict[banner.ItemId] = banner;
+                        BannerLoad.BannerDict[banner.ItemId].BannerCount = banner.BannerCount;
                 }
             }
             else //파일 없으면(새로운 플레이어인 경우) 파일 생성하고 디폴트값 넣기
