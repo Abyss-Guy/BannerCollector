@@ -11,9 +11,6 @@ namespace BannerCollector
     {
         public static void LoadModBanners()
         {
-            BannerInfo bannerInfo;
-            string modName;
-
             // Calamity banners are drawn from each item's own icon (UseItemIcon) instead of
             // the Calamity banner atlas, so banner sprites never desync when Calamity adds or
             // removes banners. The name list is matched against the loaded mod at runtime.
@@ -21,63 +18,11 @@ namespace BannerCollector
             AddItemIconBanners("CalamityMod", CalamityBanners, CalamityHardModeBanners);
             #endregion
 
+            // Catalyst, like Calamity, is rendered from each item's own icon (UseItemIcon)
+            // instead of the Catalyst banner atlas, so banner sprites stay correct if
+            // Catalyst ever changes its banner set.
             #region CatalystMod
-            modName = "CatalystMod";
-            if (ModList.Contains(modName))
-            {
-                Mod catalyst = ModLoader.GetMod("CatalystMod");
-                ModItem item;
-                #region All
-                if (catalyst.TryFind("WulfrumSlimeBanner", out item))
-                {
-                    bannerInfo = new BannerInfo();
-                    bannerInfo.ItemId = item.Type;
-                    bannerInfo.ItemName = item.Name;
-                    bannerInfo.BannerCount = 0;
-                    bannerInfo.IsHardMode = false;
-                    bannerInfo.Index = 2;
-                    bannerInfo.ModName = modName;
-                    BannerDict.Add(bannerInfo.ItemId, bannerInfo);
-                }
-
-                if (catalyst.TryFind("WulfrumMineBanner", out item))
-                {
-                    bannerInfo = new BannerInfo();
-                    bannerInfo.ItemId = item.Type;
-                    bannerInfo.ItemName = item.Name;
-                    bannerInfo.BannerCount = 0;
-                    bannerInfo.IsHardMode = false;
-                    bannerInfo.Index = 3;
-                    bannerInfo.ModName = modName;
-                    BannerDict.Add(bannerInfo.ItemId, bannerInfo);
-                }
-
-                //HardMode
-                if (catalyst.TryFind("AscendedAstralSlimeBanner", out item))
-                {
-                    bannerInfo = new BannerInfo();
-                    bannerInfo.ItemId = item.Type;
-                    bannerInfo.ItemName = item.Name;
-                    bannerInfo.BannerCount = 0;
-                    bannerInfo.IsHardMode = true;
-                    bannerInfo.Index = 0;
-                    bannerInfo.ModName = modName;
-                    BannerDict.Add(bannerInfo.ItemId, bannerInfo);
-                }
-
-                if (catalyst.TryFind("MetanovaSlimeBanner", out item))
-                {
-                    bannerInfo = new BannerInfo();
-                    bannerInfo.ItemId = item.Type;
-                    bannerInfo.ItemName = item.Name;
-                    bannerInfo.BannerCount = 0;
-                    bannerInfo.IsHardMode = true;
-                    bannerInfo.Index = 1;
-                    bannerInfo.ModName = modName;
-                    BannerDict.Add(bannerInfo.ItemId, bannerInfo);
-                }
-                #endregion
-            }
+            AddItemIconBanners("CatalystMod", CatalystBanners, CatalystHardModeBanners);
             #endregion
 
             #region ThoriumMod
@@ -94,11 +39,11 @@ namespace BannerCollector
         }
 
         /// <summary>
-        /// Registers every banner of a mod that ships one sprite per banner item
-        /// instead of a single packed banner atlas (Thorium, Spirit, Spirit Reforged).
-        /// Such banners are flagged with <see cref="BannerInfo.UseItemIcon"/> so the UI
-        /// draws them from their own item icon, which means no <see cref="BannerInfo.Index"/>
-        /// and no mod banner atlas texture are needed for them.
+        /// Registers a mod's banners so the UI draws each one from its own item icon
+        /// (<see cref="BannerInfo.UseItemIcon"/>) rather than from a packed banner atlas.
+        /// This means no <see cref="BannerInfo.Index"/> and no mod banner atlas texture are
+        /// needed, and banner sprites can never desync when a mod adds, removes or reorders
+        /// its banners. Used by Calamity, Catalyst, Thorium, Spirit and Spirit Reforged.
         /// </summary>
         /// <param name="modName">Internal name of the source mod.</param>
         /// <param name="bannerNames">Internal item names of the banners to register.</param>
@@ -190,6 +135,18 @@ namespace BannerCollector
             "StellarCulexBanner", "SulphurousSkaterBanner", "TrilobiteBanner", "VirulingBanner",
             // Added in Calamity 2.1.2 (Burrower, CladCrab and Shromble are pre-hardmode)
             "AstraglomerateBanner", "AuroraSpiritBanner", "DraconicSwarmerBanner",
+        };
+
+        private static readonly string[] CatalystBanners =
+        {
+            "AscendedAstralSlimeBanner", "MetanovaSlimeBanner", "WulfrumMineBanner", "WulfrumSlimeBanner",
+        };
+
+        // Catalyst banners that drop from hardmode enemies (preserved from the original
+        // hand-maintained data) so the hardmode/pre-hardmode filter keeps working.
+        private static readonly HashSet<string> CatalystHardModeBanners = new HashSet<string>
+        {
+            "AscendedAstralSlimeBanner", "MetanovaSlimeBanner",
         };
 
         private static readonly string[] ThoriumBanners =
