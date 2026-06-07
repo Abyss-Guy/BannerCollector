@@ -48,10 +48,13 @@ namespace BannerCollector
 
     internal class BannerPanel : BannerUIElements
     {
+        /// <summary>Default panel height that fits a single row of page dots.</summary>
+        public const float DesignHeight = 203f;
+
         public BannerPanel()
         {
             Width.Pixels = 425f;
-            Height.Pixels = 203f;
+            Height.Pixels = DesignHeight;
         }
 
         public override void Update(GameTime gameTime) { }
@@ -64,8 +67,26 @@ namespace BannerCollector
             base.Draw(spriteBatch);
 
             // 패널 그리기
-            Rectangle inner = GetInnerDimensions().ToRectangle();
-            spriteBatch.Draw(BannerCollectorResources.UI_Panel.Value, inner, Color.White);
+            Texture2D tex = BannerCollectorResources.UI_Panel.Value;
+            Rectangle dst = GetInnerDimensions().ToRectangle();
+
+            // The board art is a single sprite with the banner cells baked into its top
+            // region. To let the panel grow for extra page-dot rows without distorting the
+            // cells, draw it as a vertical 3-slice: the cell region (top) and the bottom
+            // border are drawn unscaled, and only the flat band behind the dot rows is
+            // stretched. When the panel is at its design height this reproduces the original
+            // single Draw exactly (the three slices are contiguous and unscaled).
+            const int bandTop = 176;                  // start of the page-dot band in the art
+            const int bandBottom = 192;               // end of a single dot row's band
+            int bottomH = tex.Height - bandBottom;     // bottom border, drawn unscaled
+            int extra = dst.Height - tex.Height;       // added height for extra dot rows (>= 0)
+
+            spriteBatch.Draw(tex, new Rectangle(dst.X, dst.Y, dst.Width, bandTop),
+                new Rectangle(0, 0, tex.Width, bandTop), Color.White);
+            spriteBatch.Draw(tex, new Rectangle(dst.X, dst.Y + bandTop, dst.Width, (bandBottom - bandTop) + extra),
+                new Rectangle(0, bandTop, tex.Width, bandBottom - bandTop), Color.White);
+            spriteBatch.Draw(tex, new Rectangle(dst.X, dst.Y + bandTop + (bandBottom - bandTop) + extra, dst.Width, bottomH),
+                new Rectangle(0, bandBottom, tex.Width, bottomH), Color.White);
         }
     }
 

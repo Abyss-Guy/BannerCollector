@@ -95,11 +95,9 @@ namespace BannerCollector
                     buttonClose.Left.Set(pX + pW - 63, 0f);
                     buttonClose.Top.Set(pY + 14, 0f);
 
-                    int pageWidth = 16 * totalPages;
+                    LayoutPageButtons(pX, pY, pW);
                     for (int i = 0; i < totalPages; i++)
                     {
-                        buttonPage[i].Top.Set(pY + 176, 0f);
-                        buttonPage[i].Left.Set((pW - pageWidth) / 2 + i * 16 + pX, 0f);
                         Append(buttonPage[i]);
                     }
 
@@ -130,6 +128,37 @@ namespace BannerCollector
                     }
                 }
                 bannerCollectorVisible = value;
+            }
+        }
+
+        /// <summary>
+        /// Positions the page-navigation dots in centered rows below the banner grid,
+        /// wrapping onto a new row every 21 dots, and grows the panel's height so the rows
+        /// stay inside the window. Capping a row at 21 dots keeps it within the width of the
+        /// banner grid above it (10 banner slots span almost exactly 21 dots), so the dots
+        /// stay under the banners instead of stretching to the full panel width. This
+        /// replaces the old single-row layout that ran off the panel's sides when many
+        /// enabled mods added a large number of banner pages.
+        /// </summary>
+        private void LayoutPageButtons(float pX, float pY, float pW)
+        {
+            const int dotSize = 16;
+            const int maxPerRow = 21; // keep each row within the banner grid's width
+            int perRow = Math.Min(maxPerRow, Math.Max(1, (int)(pW / dotSize))); // dots per row
+            int rows = (int)Math.Ceiling((double)totalPages / perRow);
+
+            // Grow the panel downward (its top-left is fixed) so every dot row fits inside it.
+            bannerPanel.Height.Pixels = BannerPanel.DesignHeight + Math.Max(0, rows - 1) * dotSize;
+            bannerPanel.Recalculate();
+
+            for (int i = 0; i < totalPages; i++)
+            {
+                int row = i / perRow;
+                int col = i % perRow;
+                int dotsInRow = Math.Min(perRow, totalPages - row * perRow);
+                float rowWidth = dotsInRow * dotSize;
+                buttonPage[i].Left.Set((pW - rowWidth) / 2f + col * dotSize + pX, 0f);
+                buttonPage[i].Top.Set(pY + 176 + row * dotSize, 0f);
             }
         }
 
@@ -237,14 +266,12 @@ namespace BannerCollector
             }
 
             totalPages = (int)Math.Ceiling((double)bannerList.Count / 20);
-            int pageWidth = 16 * totalPages;
             float pX = bannerPanel.GetDimensions().X;
             float pY = bannerPanel.GetDimensions().Y;
             float pW = bannerPanel.GetDimensions().Width;
+            LayoutPageButtons(pX, pY, pW);
             for (int i = 0; i < totalPages; i++)
             {
-                buttonPage[i].Top.Set(pY + 176, 0f);
-                buttonPage[i].Left.Set((pW - pageWidth) / 2 + i * 16 + pX, 0f);
                 Append(buttonPage[i]);
             }
             buttonPage[page - 1].UnSetPage();
