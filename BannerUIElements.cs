@@ -454,7 +454,12 @@ namespace BannerCollector
             // 패널 그리기
             Rectangle inner = GetInnerDimensions().ToRectangle();
 
-            if (bannerInfo.Index == -1)
+            if (bannerInfo.UseItemIcon)
+            {
+                DrawModBannerIcon(spriteBatch);
+                DrawBannerOverlay(spriteBatch);
+            }
+            else if (bannerInfo.Index == -1)
             {
                 spriteBatch.Draw(BannerCollectorResources.UI_UndefinedBanner.Value, inner, Color.White);
             }
@@ -542,6 +547,59 @@ namespace BannerCollector
                     Main.hoverItemName = Lang.GetItemNameValue(bannerInfo.ItemId); // 툴팁 텍스트 설정
                     Main.HoverItem = new Item(bannerInfo.ItemId); ; // HoverItem에 설정
                 }
+            }
+        }
+
+        /// <summary>
+        /// Draws a mod banner from its own item inventory sprite, scaled to fit the
+        /// banner slot while preserving aspect ratio. Used for banners flagged with
+        /// <see cref="BannerInfo.UseItemIcon"/> (mods without a single banner atlas).
+        /// Uncollected banners are greyed out, matching the atlas-based banners.
+        /// </summary>
+        private void DrawModBannerIcon(SpriteBatch spriteBatch)
+        {
+            Main.instance.LoadItem(bannerInfo.ItemId);
+            Texture2D texture = TextureAssets.Item[bannerInfo.ItemId].Value;
+            Rectangle frame = Main.itemAnimations[bannerInfo.ItemId] != null
+                ? Main.itemAnimations[bannerInfo.ItemId].GetFrame(texture)
+                : texture.Frame();
+
+            float scale = Math.Min(Width.Pixels / frame.Width, Height.Pixels / frame.Height);
+            Vector2 size = new Vector2(frame.Width, frame.Height) * scale;
+            Vector2 pos = new Vector2(
+                this.Left.Pixels + (Width.Pixels - size.X) / 2f,
+                this.Top.Pixels + (Height.Pixels - size.Y) / 2f);
+
+            Color color = bannerInfo.BannerCount == 0 ? new Color(143, 143, 143) : Color.White;
+            spriteBatch.Draw(texture, pos, frame, color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// Draws the collected-count text and the hardmode pin over a banner slot.
+        /// Mirrors the overlay drawn by the atlas-based banner path so item-icon
+        /// banners look identical.
+        /// </summary>
+        private void DrawBannerOverlay(SpriteBatch spriteBatch)
+        {
+            if (bannerInfo.BannerCount > 0)
+            {
+                string bannerCountText = bannerInfo.BannerCount.ToString();
+                float scale = 0.85f;
+                Vector2 textSize = FontAssets.MouseText.Value.MeasureString(bannerCountText) * scale;
+                Vector2 textPos = new Vector2(this.Left.Pixels - (textSize.X / 2) + 3, this.Top.Pixels + 36);
+
+                spriteBatch.DrawString(FontAssets.MouseText.Value, bannerCountText, textPos + new Vector2(1, 1), Color.Black, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+                spriteBatch.DrawString(FontAssets.MouseText.Value, bannerCountText, textPos + new Vector2(1, -1), Color.Black, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+                spriteBatch.DrawString(FontAssets.MouseText.Value, bannerCountText, textPos + new Vector2(-1, -1), Color.Black, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+                spriteBatch.DrawString(FontAssets.MouseText.Value, bannerCountText, textPos + new Vector2(-1, 1), Color.Black, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+                spriteBatch.DrawString(FontAssets.MouseText.Value, bannerCountText, textPos, Color.White, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+            }
+
+            if (bannerInfo.IsHardMode)
+            {
+                Vector2 spritePos = new Vector2(this.Left.Pixels - 5, this.Top.Pixels - 4);
+                Rectangle spriteFrame = new Rectangle(0, 0, 14, 12);
+                spriteBatch.Draw(BannerCollectorResources.Pin_HardMode.Value, spritePos, spriteFrame, Color.White);
             }
         }
 

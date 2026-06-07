@@ -63,6 +63,28 @@ namespace BannerCollector
                     Asset<Texture2D> bannerTexture = mod.Assets.Request<Texture2D>("Tiles/EnemyBanners");
                     BannerLoad.ModBannerTexture.Add("CatalystMod", bannerTexture);
                 }
+                // Mods below ship one sprite per banner item instead of a single packed
+                // banner atlas, so they are drawn from each item's own icon (UseItemIcon)
+                // and need no ModBannerTexture entry. They are only registered in ModList
+                // so the mod filter button lists them and filtering by mod works.
+                //ThoriumMod
+                if (ModLoader.HasMod("ThoriumMod"))
+                {
+                    BannerLoad.ModList.Add("ThoriumMod");
+                    BannerLoad.isModded = true;
+                }
+                //SpiritMod
+                if (ModLoader.HasMod("SpiritMod"))
+                {
+                    BannerLoad.ModList.Add("SpiritMod");
+                    BannerLoad.isModded = true;
+                }
+                //SpiritReforged
+                if (ModLoader.HasMod("SpiritReforged"))
+                {
+                    BannerLoad.ModList.Add("SpiritReforged");
+                    BannerLoad.isModded = true;
+                }
 
                 BannerLoad.LoadBanners();
                 PlayerAssist.LoadPlayerBannerData();

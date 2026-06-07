@@ -67,6 +67,21 @@ namespace BannerCollector.Tiles
                             bannerIndex = modNPC.Type;
                         }
                     }
+                    else if (banner.UseItemIcon)
+                    {
+                        // Grant the matching vanilla banner buff by resolving the banner's
+                        // NPC from its item name. Skip if the NPC can't be found so we never
+                        // reuse a stale bannerIndex from a previous iteration.
+                        if (ModLoader.TryGetMod(banner.ModName, out Mod mod)
+                            && mod.TryFind(GetBannerNpcName(banner.ItemName), out modNPC))
+                        {
+                            bannerIndex = modNPC.Type;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
                     Main.SceneMetrics.NPCBannerBuff[bannerIndex] = true;
                 }
                 Main.SceneMetrics.hasBanner = true;
@@ -76,6 +91,20 @@ namespace BannerCollector.Tiles
         public override bool KillSound(int i, int j, bool fail)
         {
             return false;
+        }
+
+        /// <summary>
+        /// Derives the NPC internal name from a banner item's internal name so the
+        /// matching vanilla banner buff can be granted. Item names end with either
+        /// "BannerItem" (Spirit Reforged) or "Banner" (Thorium, Spirit).
+        /// </summary>
+        private static string GetBannerNpcName(string itemName)
+        {
+            if (itemName.EndsWith("BannerItem"))
+                return itemName.Substring(0, itemName.Length - "BannerItem".Length);
+            if (itemName.EndsWith("Banner"))
+                return itemName.Substring(0, itemName.Length - "Banner".Length);
+            return itemName;
         }
 
         public static void UpdateTilePosition(Player player)

@@ -2714,6 +2714,7 @@ namespace BannerCollector
         private bool isHardMode = false;
         private int index = -1; //Tiles_91 파일의 배너 순서
         private string modName = null;
+        private bool useItemIcon = false;
 
         public int ItemId
         {
@@ -2755,6 +2756,19 @@ namespace BannerCollector
         {
             get { return modName; }
             set { modName = value; }
+        }
+
+        /// <summary>
+        /// When true, this banner is rendered from its own item inventory sprite
+        /// (<c>TextureAssets.Item[ItemId]</c>) instead of the atlas+<see cref="Index"/>
+        /// path used by vanilla, Calamity and Catalyst banners. Used by mods that ship
+        /// one sprite per banner item rather than a single packed banner atlas
+        /// (Thorium, Spirit, Spirit Reforged).
+        /// </summary>
+        public bool UseItemIcon
+        {
+            get { return useItemIcon; }
+            set { useItemIcon = value; }
         }
     }
 }

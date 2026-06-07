@@ -1560,7 +1560,159 @@ namespace BannerCollector
                 #endregion
             }
             #endregion
+
+            #region ThoriumMod
+            AddItemIconBanners("ThoriumMod", ThoriumBanners, ThoriumHardModeBanners);
+            #endregion
+
+            #region SpiritMod
+            AddItemIconBanners("SpiritMod", SpiritBanners, SpiritHardModeBanners);
+            #endregion
+
+            #region SpiritReforged
+            AddItemIconBanners("SpiritReforged", SpiritReforgedBanners, SpiritReforgedHardModeBanners);
+            #endregion
         }
+
+        /// <summary>
+        /// Registers every banner of a mod that ships one sprite per banner item
+        /// instead of a single packed banner atlas (Thorium, Spirit, Spirit Reforged).
+        /// Such banners are flagged with <see cref="BannerInfo.UseItemIcon"/> so the UI
+        /// draws them from their own item icon, which means no <see cref="BannerInfo.Index"/>
+        /// and no mod banner atlas texture are needed for them.
+        /// </summary>
+        /// <param name="modName">Internal name of the source mod.</param>
+        /// <param name="bannerNames">Internal item names of the banners to register.</param>
+        private static void AddItemIconBanners(string modName, string[] bannerNames)
+        {
+            if (!ModList.Contains(modName))
+                return;
+
+            Mod mod = ModLoader.GetMod(modName);
+            foreach (string bannerName in bannerNames)
+            {
+                if (!mod.TryFind(bannerName, out ModItem item))
+                    continue;
+
+                BannerDict[item.Type] = new BannerInfo
+                {
+                    ItemId = item.Type,
+                    ItemName = item.Name,
+                    BannerCount = 0,
+                    IsHardMode = false,
+                    ModName = modName,
+                    UseItemIcon = true,
+                };
+            }
+        }
+
+        // Internal banner item names extracted from each mod's assets
+        // (Items/Banners/*Banner for Thorium & Spirit, *BannerItem for Spirit Reforged).
+        // The list is matched against the loaded mod at runtime via Mod.TryFind, so any
+        // name missing from a given mod version is simply skipped.
+
+        private static readonly string[] ThoriumBanners =
+        {
+            "AbominationBanner", "AbyssalAnglerBanner", "AncientArcherBanner", "AncientChargerBanner",
+            "AncientPhalanxBanner", "ArmyAntBanner", "AstroBeetleBanner", "BarracudaBanner", "BiterBanner",
+            "BlackWidowBanner", "BlisterPodBanner", "BlizzardBatBanner", "BlobfishBanner", "BloodMageBanner",
+            "BloodyWargBanner", "BlowfishBanner", "BoneFlayerBanner", "BrownRecluseBanner", "ChilledSpitterBanner",
+            "CoinBagBanner", "ColdlingBanner", "CoolmeraBanner", "CrownofThornsBanner", "DarksteelKnightBanner",
+            "DissonanceSeerBanner", "EarthenBatBanner", "EarthenGolemBanner", "EngorgedEyeBanner", "EpiDermonBanner",
+            "FeedingFrenzyBanner", "FlamekinCasterBanner", "FreezerBanner", "FrostBurntBanner", "FrostFangBanner",
+            "FrostWurmBanner", "FrozenFaceBanner", "FrozenGrossBanner", "GelatinousCubeBanner", "GigaClamBanner",
+            "GlitteringGolemBanner", "GoblinDrummerBanner", "GoblinSpiritGuideBanner", "GoblinTrapperBanner",
+            "GoldBatBanner", "GoldLycanBanner", "GoldSlimeBanner", "GraniteEradicatorBanner", "GraniteFusedSlimeBanner",
+            "GraniteSurgerBanner", "GraveLimbBanner", "HallucinationBanner", "HammerHeadBanner", "HellBringerMimicBanner",
+            "HoppingSpiderBanner", "HorrificChargerBanner", "InfernalHoundBanner", "KrakenBanner", "LeFantomeBanner",
+            "LifeCrystalMimicBanner", "LihzardMimicBanner", "LihzardPotMimicBanner", "LivingHemorrhageBanner",
+            "LycanBanner", "MahoganyEntBanner", "ManofWarBanner", "MartianScoutBanner", "MartianSentryBanner",
+            "MoltenMortarBanner", "MorayBanner", "MossWaspBanner", "MudManBanner", "MyceliumMimicBanner",
+            "NecroPotBanner", "NestlingBanner", "OctopusBanner", "PutridSerpentBanner", "RagingMinotaurBanner",
+            "ScissorStalkerBanner", "SeaShantySingerBanner", "ShamblerBanner", "SharptoothBanner", "SmotheringShadeBanner",
+            "SnowballBanner", "SnowEaterBanner", "SnowElementalBanner", "SnowFlinxMatriarchBanner", "SnowSingaBanner",
+            "SnowyOwlBanner", "SoulCorrupterBanner", "SpaceSlimeBanner", "SpectrumiteBanner", "StrangeBulbBanner",
+            "SubmergedMimicBanner", "SunPriestessBanner", "TarantulaBanner", "TheInnocentBanner", "TheStarvedBanner",
+            "UFOBanner", "UnderworldPotBanner", "VampireSquidBanner", "VileFloaterBanner", "VoltEelBanner",
+            "WindElementalBanner",
+        };
+
+        // Thorium banners that drop from hardmode enemies (verified against
+        // thoriummod.wiki.gg/wiki/Enemy_list). Everything else is pre-hardmode.
+        private static readonly HashSet<string> ThoriumHardModeBanners = new HashSet<string>
+        {
+            "AbyssalAnglerBanner", "AstroBeetleBanner", "BlackWidowBanner", "BlisterPodBanner",
+            "BlizzardBatBanner", "BlobfishBanner", "BloodMageBanner", "BloodyWargBanner",
+            "BoneFlayerBanner", "BrownRecluseBanner", "ChilledSpitterBanner", "CoinBagBanner",
+            "ColdlingBanner", "CrownofThornsBanner", "DissonanceSeerBanner", "EpiDermonBanner",
+            "FeedingFrenzyBanner", "FreezerBanner", "FrostBurntBanner", "FrostFangBanner",
+            "FrozenGrossBanner", "GlitteringGolemBanner", "GoblinSpiritGuideBanner", "HallucinationBanner",
+            "HellBringerMimicBanner", "HorrificChargerBanner", "InfernalHoundBanner", "KrakenBanner",
+            "LeFantomeBanner", "LihzardMimicBanner", "LihzardPotMimicBanner", "LycanBanner",
+            "MartianScoutBanner", "MartianSentryBanner", "MoltenMortarBanner", "MossWaspBanner",
+            "MyceliumMimicBanner", "NecroPotBanner", "PutridSerpentBanner", "ScissorStalkerBanner",
+            "SeaShantySingerBanner", "SmotheringShadeBanner", "SnowElementalBanner", "SnowFlinxMatriarchBanner",
+            "SnowSingaBanner", "SnowyOwlBanner", "SoulCorrupterBanner", "SpectrumiteBanner",
+            "SubmergedMimicBanner", "SunPriestessBanner", "TarantulaBanner", "TheStarvedBanner",
+            "UnderworldPotBanner", "VampireSquidBanner", "VileFloaterBanner", "VoltEelBanner",
+        };
+
+        private static readonly string[] SpiritBanners =
+        {
+            "AlienBanner", "AncientApostleBanner", "AncientSpectreBanner", "AntlionAssassinBanner", "ArachmatonBanner",
+            "ArterialGrasperBanner", "AstralAdventurerBanner", "AstralAmalgamBanner", "BeholderBanner",
+            "BlazingSkullBanner", "BlizzardBanditBanner", "BlizzardNimbusBanner", "BloaterBanner", "BloatfishBanner",
+            "BloomshroomBanner", "BlossomHoundBanner", "BlueDungeonCubeBanner", "BottomFeederBanner",
+            "BoulderBehemothBanner", "BriarthornSlimeBanner", "BubbleBruteBanner", "CavernBanditBanner",
+            "CavernCrawlerBanner", "ChestZombieBanner", "CoconutSlimeBanner", "CracklingCoreBanner", "CrocosaurBanner",
+            "CrystalDrifterBanner", "CystalBanner", "DarkAlchemistBanner", "DeadeyeMarksmanBanner", "DiseasedSlimeBanner",
+            "DraugrBanner", "ElectricEelBanner", "FallenAngelBanner", "FallingAsteroidBanner", "FesterflyBanner",
+            "FleshHoundBanner", "FurnaceMawBanner", "GhastBanner", "GiantJellyBanner", "GladeWraithBanner",
+            "GladiatorSpiritBanner", "GlitterflyBanner", "GloopBanner", "GlowToadBanner", "GluttonousDevourerBanner",
+            "GoblinGrenadierBanner", "GoldCrateMimicBanner", "GranitecTurretBanner", "GraniteSlimeBanner",
+            "GreenDungeonCubeBanner", "HauntedTomeBanner", "HemaphoraBanner", "HydraGreenBanner",
+            "HydraPurpleBanner", "HydraRedBanner", "IronCrateMimicBanner",
+            "KakamoraBanner", "KakamoraBruteBanner", "KakamoraGliderBanner", "KakamoraShamanBanner",
+            "KakamoraShielderBanner", "KakamoraShielderBanner1", "KakamoraThrowerBanner", "LostMimeBanner",
+            "LumantisBanner", "LunarSlimeBanner", "MadHatterBanner", "MangoWarBanner", "MangroveDefenderBanner",
+            "MasticatorBanner", "MechromancerBanner", "MoltenCoreBanner", "MoonlightPreserverBanner",
+            "MoonlightRupturerBanner", "MyceliumBotanistBanner", "NetherbaneBanner", "OccultistBanner", "OrbititeBanner",
+            "PhantomBanner", "PhantomSamuraiBanner", "PinkDungeonCubeBanner", "PirateLobberBanner", "PokeyBanner",
+            "PutromaBanner", "ReachmanBanner", "RlyehianBanner", "ScreechOwlBanner", "ShockhopperBanner",
+            "SkeletonBruteBanner", "SoulCrusherBanner", "SpiritBatBanner", "SpiritFloaterBanner", "SpiritGhoulBanner",
+            "SpiritMummyBanner", "SpiritSkullBanner", "SpiritTomeBanner", "SporeWheezerBanner", "StardancerBanner",
+            "StymphalianBatBanner", "ThornStalkerBanner", "TrochmatonBanner", "ValkyrieBanner", "WanderingSoulBanner",
+            "WheezerBanner", "WildwoodWatcherBanner", "WinterbornBanner", "WinterbornHeraldBanner", "WoodCrateMimicBanner",
+            "YureiBanner",
+        };
+
+        // Spirit banners that drop from hardmode enemies (verified against
+        // spiritmod.wiki.gg/wiki/Enemies). The Spirit-biome enemies Shadow Ghoul, Dusk Mummy
+        // and Ancient Tome use the internal names SpiritGhoul/SpiritMummy/SpiritTome.
+        private static readonly HashSet<string> SpiritHardModeBanners = new HashSet<string>
+        {
+            "AncientSpectreBanner", "ArachmatonBanner", "BoulderBehemothBanner", "FallenAngelBanner",
+            "GranitecTurretBanner", "HydraGreenBanner", "HydraPurpleBanner", "HydraRedBanner",
+            "MangroveDefenderBanner", "NetherbaneBanner", "PhantomBanner", "SoulCrusherBanner",
+            "SpiritBatBanner", "SpiritFloaterBanner", "SpiritGhoulBanner", "SpiritMummyBanner",
+            "SpiritSkullBanner", "SpiritTomeBanner", "StymphalianBatBanner", "TrochmatonBanner",
+            "WanderingSoulBanner",
+        };
+
+        private static readonly string[] SpiritReforgedBanners =
+        {
+            "CorruptStactusBannerItem", "CrimsonStactusBannerItem", "DecrepitMummyBannerItem",
+            "DesertStactusBannerItem", "DunceCrabBannerItem", "GraverobberBannerItem", "HallowedStactusBannerItem",
+            "HyenaBannerItem", "MossSlimeBannerItem", "OceanSlimeBannerItem", "OstrichBannerItem",
+            "PeevedTumblerBannerItem", "WheezerBannerItem", "WispBannerItem",
+        };
+
+        // Spirit Reforged banners that drop from hardmode enemies (verified against
+        // spiritmod.wiki.gg/wiki/Spirit_Reforged/Enemies). Only Hallowed Stactus is hardmode.
+        private static readonly HashSet<string> SpiritReforgedHardModeBanners = new HashSet<string>
+        {
+            "HallowedStactusBannerItem",
+        };
     }
 }
 
