@@ -2716,6 +2716,7 @@ namespace BannerCollector
         private string modName = null;
         private bool useItemIcon = false;
         private int tileType = -1;
+        private int npcType = -1;
 
         public int ItemId
         {
@@ -2781,6 +2782,18 @@ namespace BannerCollector
         {
             get { return tileType; }
             set { tileType = value; }
+        }
+
+        /// <summary>
+        /// NPC type whose banner this is (the enemy whose kills the banner counts), or -1 if it
+        /// could not be resolved at load. Resolved once during registration from the game's own
+        /// NPC-to-banner association (with a name-based fallback) and used to grant the vanilla
+        /// nearby-banner buff, so no per-frame NPC lookup is needed.
+        /// </summary>
+        public int NpcType
+        {
+            get { return npcType; }
+            set { npcType = value; }
         }
     }
 }

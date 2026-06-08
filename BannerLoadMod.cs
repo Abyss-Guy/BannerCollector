@@ -16,9 +16,14 @@ namespace BannerCollector
         // "/discoverbanners" command; does not affect loading.
         internal static readonly List<string> SkippedBanners = new List<string>();
 
+        // Reverse map (banner item type -> NPC type) built from the game's own NPC banner
+        // association, used to resolve each banner's enemy once at load. See BuildBannerItemToNpcMap.
+        private static readonly Dictionary<int, int> BannerItemToNpc = new Dictionary<int, int>();
+
         public static void LoadModBanners()
         {
             SkippedBanners.Clear();
+            BuildBannerItemToNpcMap();
 
             // Calamity banners are drawn from each item's own icon (UseItemIcon) instead of
             // the Calamity banner atlas, so banner sprites never desync when Calamity adds or
@@ -99,6 +104,19 @@ namespace BannerCollector
                 // in which case the UI falls back to the item icon.
                 Item sample = ContentSamples.ItemsByType[item.Type];
 
+                // Resolve the banner's enemy once, here at load, so granting the nearby-banner
+                // buff later needs no per-frame lookup. Prefer the game's own NPC-to-banner
+                // association (name-independent, authoritative); fall back to matching the NPC
+                // by name for banners whose enemy link is non-standard. -1 means no buff.
+                int npcType = -1;
+                if (BannerItemToNpc.TryGetValue(item.Type, out int associatedNpc))
+                    npcType = associatedNpc;
+                else if (mod.TryFind(GetBannerNpcName(item.Name), out ModNPC fallbackNpc))
+                    npcType = fallbackNpc.Type;
+
+                if (npcType < 0)
+                    SkippedBanners.Add($"{modName}/{bannerName} [NPC not resolved - banner gives no buff]");
+
                 BannerDict[item.Type] = new BannerInfo
                 {
                     ItemId = item.Type,
@@ -109,8 +127,50 @@ namespace BannerCollector
                     UseItemIcon = true,
                     TileType = sample.createTile,
                     Index = sample.placeStyle,
+                    NpcType = npcType,
                 };
             }
+        }
+
+        /// <summary>
+        /// Builds <see cref="BannerItemToNpc"/> (banner item type -> NPC type) from the game's
+        /// own banner association, i.e. the exact chain the engine uses when an enemy drops its
+        /// banner: NPC -> <see cref="Item.NPCtoBanner"/> -> <see cref="Item.BannerToItem"/>.
+        /// This is the authoritative, name-independent link between a banner and its enemy, so
+        /// the nearby-banner buff is granted to the correct NPC for any mod regardless of how it
+        /// names its banner items.
+        /// </summary>
+        private static void BuildBannerItemToNpcMap()
+        {
+            BannerItemToNpc.Clear();
+            for (int npcType = 0; npcType < NPCLoader.NPCCount; npcType++)
+            {
+                if (!ContentSamples.NpcsByNetId.TryGetValue(npcType, out NPC npc))
+                    continue;
+
+                int banner = Item.NPCtoBanner(npc.BannerID());
+                if (banner <= 0)
+                    continue;
+
+                int itemType = Item.BannerToItem(banner);
+                if (itemType > 0 && !BannerItemToNpc.ContainsKey(itemType))
+                    BannerItemToNpc[itemType] = npcType;
+            }
+        }
+
+        /// <summary>
+        /// Derives the likely NPC internal name from a banner item's internal name by removing
+        /// the trailing "BannerItem" (Spirit Reforged) or "Banner" suffix. Used only as a
+        /// fallback when the game's NPC-to-banner association (<see cref="BannerItemToNpc"/>)
+        /// does not cover a banner.
+        /// </summary>
+        private static string GetBannerNpcName(string itemName)
+        {
+            if (itemName.EndsWith("BannerItem"))
+                return itemName.Substring(0, itemName.Length - "BannerItem".Length);
+            if (itemName.EndsWith("Banner"))
+                return itemName.Substring(0, itemName.Length - "Banner".Length);
+            return itemName;
         }
 
         // Internal banner item names extracted from each mod's assets

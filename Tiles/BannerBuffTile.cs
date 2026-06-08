@@ -21,8 +21,6 @@ namespace BannerCollector.Tiles
 
         static int? preTileX;
         static int? preTileY;
-        Mod calamity;
-        ModNPC modNPC;
         public override void PostSetDefaults()
         {
             Main.tileSolid[Type] = false; // 견고한 블록이 아님
@@ -41,70 +39,36 @@ namespace BannerCollector.Tiles
 
         public override void NearbyEffects(int i, int j, bool closer)
         {
-            if (BannerLoad.isModded)
-            {
-                if (BannerLoad.ModList.Contains("CalamityMod"))
-                {
-                    calamity = ModLoader.GetMod("CalamityMod");
-                }
-            }
             if (!BannerCollectorConfig.Instance.EnableBannerBuff)
             {
                 Main.SceneMetrics.hasBanner = false;
                 return;
             }
-            else
+            foreach (var banner in bannerListToBuff)
             {
-                int bannerIndex = 0;
-                foreach (var banner in bannerListToBuff)
+                int bannerIndex;
+                if (banner.ModName == null)
                 {
-                    if (banner.ModName == null)
-                    { bannerIndex = banner.Index - 21; }
-                    else if (banner.ModName == "CalamityMod")
-                    {
-                        if (calamity.TryFind(banner.ItemName.Replace("Banner", ""), out modNPC))
-                        {
-                            bannerIndex = modNPC.Type;
-                        }
-                    }
-                    else if (banner.UseItemIcon)
-                    {
-                        // Grant the matching vanilla banner buff by resolving the banner's
-                        // NPC from its item name. Skip if the NPC can't be found so we never
-                        // reuse a stale bannerIndex from a previous iteration.
-                        if (ModLoader.TryGetMod(banner.ModName, out Mod mod)
-                            && mod.TryFind(GetBannerNpcName(banner.ItemName), out modNPC))
-                        {
-                            bannerIndex = modNPC.Type;
-                        }
-                        else
-                        {
-                            continue;
-                        }
-                    }
-                    Main.SceneMetrics.NPCBannerBuff[bannerIndex] = true;
+                    bannerIndex = banner.Index - 21; // vanilla path, unchanged
                 }
-                Main.SceneMetrics.hasBanner = true;
+                else
+                {
+                    // Modded banners use the NpcType resolved once at load via the game's
+                    // own NPC-to-banner association (BannerLoadMod.BuildBannerItemToNpcMap),
+                    // with a name-based fallback. -1 means it could not be resolved (logged
+                    // into SkippedBanners at load) and the banner simply grants no buff.
+                    if (banner.NpcType < 0)
+                        continue;
+                    bannerIndex = banner.NpcType;
+                }
+                Main.SceneMetrics.NPCBannerBuff[bannerIndex] = true;
             }
+            Main.SceneMetrics.hasBanner = true;
         }
 
         public override bool KillSound(int i, int j, bool fail)
         {
             return false;
-        }
-
-        /// <summary>
-        /// Derives the NPC internal name from a banner item's internal name so the
-        /// matching vanilla banner buff can be granted. Item names end with either
-        /// "BannerItem" (Spirit Reforged) or "Banner" (Thorium, Spirit).
-        /// </summary>
-        private static string GetBannerNpcName(string itemName)
-        {
-            if (itemName.EndsWith("BannerItem"))
-                return itemName.Substring(0, itemName.Length - "BannerItem".Length);
-            if (itemName.EndsWith("Banner"))
-                return itemName.Substring(0, itemName.Length - "Banner".Length);
-            return itemName;
         }
 
         public static void UpdateTilePosition(Player player)
