@@ -38,6 +38,14 @@ namespace BannerCollector
             #region SpiritReforged
             AddItemIconBanners("SpiritReforged", SpiritReforgedBanners, SpiritReforgedHardModeBanners);
             #endregion
+
+            #region Consolaria
+            AddItemIconBanners("Consolaria", ConsolariaBanners, ConsolariaHardModeBanners);
+            #endregion
+
+            #region VitalityMod
+            AddItemIconBanners("VitalityMod", VitalityBanners, VitalityHardModeBanners);
+            #endregion
         }
 
         /// <summary>
@@ -260,6 +268,46 @@ namespace BannerCollector
         private static readonly HashSet<string> SpiritReforgedHardModeBanners = new HashSet<string>
         {
             "HallowedStactusBannerItem",
+        };
+
+        private static readonly string[] ConsolariaBanners =
+        {
+            "AlbinoAntlionBanner", "AlbinoChargerBanner", "AlbinoSwarmerBanner", "ArchDemonBanner",
+            "ArchWyvernBanner", "DisasterBunnyBanner", "DragonHornetBanner", "DragonSkullBanner",
+            "DragonSnatcherBanner", "FleshAxeBanner", "FleshMummyBanner", "FleshSlimeBanner",
+            "MythicalWyvernBanner", "OrcaBanner", "ShadowHammerBanner", "ShadowMummyBanner",
+            "ShadowSlimeBanner", "SpectralElementalBanner", "SpectralGastropodBanner", "SpectralMummyBanner",
+            "VampireMinerBanner",
+        };
+
+        // Consolaria banners that drop from hardmode enemies (verified against
+        // terrariamods.fandom.com/wiki/Consolaria/Enemies).
+        private static readonly HashSet<string> ConsolariaHardModeBanners = new HashSet<string>
+        {
+            "ArchWyvernBanner", "FleshAxeBanner", "FleshMummyBanner", "FleshSlimeBanner",
+            "MythicalWyvernBanner", "ShadowHammerBanner", "ShadowMummyBanner", "ShadowSlimeBanner",
+            "SpectralElementalBanner", "SpectralGastropodBanner", "SpectralMummyBanner",
+        };
+
+        private static readonly string[] VitalityBanners =
+        {
+            "AmberSlimeBanner", "AmethystSlimeBanner", "AquaticMermanBanner", "BigEaterBanner",
+            "BoneDemonBanner", "ChickenBanner", "CrystalBasiliskBanner", "DecayingBatBanner",
+            "DiamondSlimeBanner", "DynamiteSnowmanBanner", "EmeraldSlimeBanner", "ForestSpiritBanner",
+            "FungalTortoiseBanner", "GladiatorBanner", "HeatwaveZombieBanner", "IceChimeBanner",
+            "LeechingBatBanner", "MagmaSharkBanner", "MossMothBanner", "MossSkeletonBanner",
+            "PufferfishBanner", "RattlingArcherBanner", "RottenAntlionBanner", "RubySlimeBanner",
+            "SapphireSlimeBanner", "ScubaZombieBanner", "SheddedAntlionBanner", "StrangeSaucerBanner",
+            "TaintedBasiliskBanner", "TopazSlimeBanner", "UmbrellaZombieBanner", "VileBasiliskBanner",
+        };
+
+        // Vitality banners that drop from hardmode enemies (verified against
+        // terrariamods.fandom.com/wiki/Vitality_Mod/Enemies).
+        private static readonly HashSet<string> VitalityHardModeBanners = new HashSet<string>
+        {
+            "BoneDemonBanner", "CrystalBasiliskBanner", "DynamiteSnowmanBanner", "FungalTortoiseBanner",
+            "IceChimeBanner", "MagmaSharkBanner", "StrangeSaucerBanner", "TaintedBasiliskBanner",
+            "VileBasiliskBanner",
         };
     }
 }

@@ -85,6 +85,18 @@ namespace BannerCollector
                     BannerLoad.ModList.Add("SpiritReforged");
                     BannerLoad.isModded = true;
                 }
+                //Consolaria
+                if (ModLoader.HasMod("Consolaria"))
+                {
+                    BannerLoad.ModList.Add("Consolaria");
+                    BannerLoad.isModded = true;
+                }
+                //VitalityMod
+                if (ModLoader.HasMod("VitalityMod"))
+                {
+                    BannerLoad.ModList.Add("VitalityMod");
+                    BannerLoad.isModded = true;
+                }
 
                 BannerLoad.LoadBanners();
                 PlayerAssist.LoadPlayerBannerData();
