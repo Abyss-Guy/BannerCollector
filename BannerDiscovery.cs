@@ -18,33 +18,67 @@ namespace BannerCollector
     internal static class BannerDiscovery
     {
         /// <summary>
-        /// Banner item types of every loaded mod, grouped by mod internal name. A banner is
-        /// detected the same way the vanilla death-drop code finds one: an NPC maps to a
-        /// banner number (<see cref="Item.NPCtoBanner"/>) which maps to a banner item
-        /// (<see cref="Item.BannerToItem"/>). Vanilla banners are skipped.
+        /// Banner item types of every loaded mod, grouped by mod internal name. Two passes:
+        ///   1) resolve each modded NPC's banner the way the vanilla death-drop code does
+        ///      (NPC -> <see cref="Item.NPCtoBanner"/> -> <see cref="Item.BannerToItem"/>).
+        ///      This yields only genuine banner items and reveals which TILE types are banner
+        ///      tiles;
+        ///   2) any other modded item that places one of those confirmed banner tiles is also
+        ///      a banner, even when its NPC link is missing or custom (e.g. Homeward Journey's
+        ///      Drowned / Abyssquid share the same banner tile). Keying on a confirmed banner
+        ///      tile means non-banner items are never pulled in.
+        /// Vanilla banners are skipped. Pure read - changes no game state.
         /// </summary>
         public static Dictionary<string, List<int>> DiscoverModBanners()
         {
-            var result = new Dictionary<string, List<int>>();
+            var bannerItems = new HashSet<int>();
+            var bannerTiles = new HashSet<int>();
 
+            // Pass 1: NPC banner registry (precise) + collect each banner's tile type.
             for (int npcType = NPCID.Count; npcType < NPCLoader.NPCCount; npcType++)
             {
                 if (!ContentSamples.NpcsByNetId.TryGetValue(npcType, out NPC npc))
                     continue;
 
-                int bannerNumber = Item.NPCtoBanner(npc.BannerID());
-                if (bannerNumber <= 0)
+                int banner = Item.NPCtoBanner(npc.BannerID());
+                if (banner <= 0)
                     continue;
 
-                int itemType = Item.BannerToItem(bannerNumber);
-                if (itemType <= 0 || itemType < ItemID.Count)
-                    continue; // not a banner, or a vanilla banner
+                int itemType = Item.BannerToItem(banner);
+                if (itemType < ItemID.Count)
+                    continue; // 0 (no banner) or a vanilla banner
 
-                string modName = ItemLoader.GetItem(itemType)?.Mod?.Name ?? "Unknown";
+                bannerItems.Add(itemType);
+                if (ContentSamples.ItemsByType.TryGetValue(itemType, out Item bannerSample) && bannerSample.createTile >= 0)
+                    bannerTiles.Add(bannerSample.createTile);
+            }
+
+            // Pass 2: sibling banners that place a confirmed banner tile but were missed above.
+            if (bannerTiles.Count > 0)
+            {
+                for (int itemType = ItemID.Count; itemType < ItemLoader.ItemCount; itemType++)
+                {
+                    if (ContentSamples.ItemsByType.TryGetValue(itemType, out Item sample)
+                        && sample.createTile >= 0
+                        && bannerTiles.Contains(sample.createTile))
+                    {
+                        bannerItems.Add(itemType);
+                    }
+                }
+            }
+
+            // Group by owning mod.
+            var result = new Dictionary<string, List<int>>();
+            foreach (int itemType in bannerItems)
+            {
+                ModItem modItem = ItemLoader.GetItem(itemType);
+                if (modItem == null)
+                    continue;
+
+                string modName = modItem.Mod?.Name ?? "Unknown";
                 if (!result.TryGetValue(modName, out List<int> list))
                     result[modName] = list = new List<int>();
-                if (!list.Contains(itemType))
-                    list.Add(itemType);
+                list.Add(itemType);
             }
 
             return result;
