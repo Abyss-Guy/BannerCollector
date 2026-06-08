@@ -477,7 +477,10 @@ namespace BannerCollector
 
             if (bannerInfo.UseItemIcon)
             {
-                DrawModBannerIcon(spriteBatch);
+                if (bannerInfo.TileType >= 0)
+                    DrawTileBanner(spriteBatch);
+                else
+                    DrawModBannerIcon(spriteBatch);
                 DrawBannerOverlay(spriteBatch);
             }
             else if (bannerInfo.Index == -1)
@@ -572,10 +575,39 @@ namespace BannerCollector
         }
 
         /// <summary>
+        /// Draws a mod banner from its real banner tile (<see cref="BannerInfo.TileType"/>),
+        /// selecting the frame with <see cref="BannerInfo.Index"/> (the item's placeStyle).
+        /// This produces the authentic vanilla 16x48 three-frame banner look. The frame layout
+        /// (18px wide, 54px tall cells) matches standard banner tiles; falls back to the item
+        /// icon if the tile texture is missing.
+        /// </summary>
+        private void DrawTileBanner(SpriteBatch spriteBatch)
+        {
+            Main.instance.LoadTiles(bannerInfo.TileType);
+            Texture2D texture = TextureAssets.Tile[bannerInfo.TileType].Value;
+            int widthCount = texture != null ? texture.Width / 18 : 0;
+            if (widthCount <= 0)
+            {
+                DrawModBannerIcon(spriteBatch); // tile sheet not usable -> fall back to the icon
+                return;
+            }
+
+            Color color = bannerInfo.BannerCount == 0 ? new Color(143, 143, 143) : Color.White;
+            int imagePosX = (bannerInfo.Index % widthCount) * 18;
+            int imagePosY = (bannerInfo.Index / widthCount) * 54;
+            const float textureScale = 1.02f;
+            for (int f = 0; f < 3; f++)
+            {
+                Vector2 spritePos = new Vector2(this.Left.Pixels, this.Top.Pixels + f * 16);
+                Rectangle spriteFrame = new Rectangle(imagePosX, imagePosY + f * 18, 16, 16);
+                spriteBatch.Draw(texture, spritePos, spriteFrame, color, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
+            }
+        }
+
+        /// <summary>
         /// Draws a mod banner from its own item inventory sprite, scaled to fit the
-        /// banner slot while preserving aspect ratio. Used for banners flagged with
-        /// <see cref="BannerInfo.UseItemIcon"/> (mods without a single banner atlas).
-        /// Uncollected banners are greyed out, matching the atlas-based banners.
+        /// banner slot while preserving aspect ratio. Fallback for banners with no placeable
+        /// tile. Uncollected banners are greyed out, matching the tile-based banners.
         /// </summary>
         private void DrawModBannerIcon(SpriteBatch spriteBatch)
         {

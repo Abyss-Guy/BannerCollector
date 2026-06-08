@@ -2715,6 +2715,7 @@ namespace BannerCollector
         private int index = -1; //Tiles_91 파일의 배너 순서
         private string modName = null;
         private bool useItemIcon = false;
+        private int tileType = -1;
 
         public int ItemId
         {
@@ -2759,16 +2760,27 @@ namespace BannerCollector
         }
 
         /// <summary>
-        /// When true, this banner is rendered from its own item inventory sprite
-        /// (<c>TextureAssets.Item[ItemId]</c>) instead of the atlas+<see cref="Index"/>
-        /// path used by vanilla, Calamity and Catalyst banners. Used by mods that ship
-        /// one sprite per banner item rather than a single packed banner atlas
-        /// (Thorium, Spirit, Spirit Reforged).
+        /// When true, this is a mod banner resolved at runtime: it is drawn from its actual
+        /// banner tile (<see cref="TileType"/> + <see cref="Index"/> read from the item's
+        /// createTile/placeStyle), which keeps the authentic 16x48 banner look without any
+        /// hardcoded atlas indices. Falls back to the item inventory sprite if the banner has
+        /// no placeable tile. Used by Calamity, Catalyst, Thorium, Spirit and Spirit Reforged.
         /// </summary>
         public bool UseItemIcon
         {
             get { return useItemIcon; }
             set { useItemIcon = value; }
+        }
+
+        /// <summary>
+        /// Tile type this banner places (item.createTile), or -1 if it has none. For
+        /// <see cref="UseItemIcon"/> banners the UI draws this tile's atlas frame selected by
+        /// <see cref="Index"/> (the item's placeStyle), giving the same look as vanilla banners.
+        /// </summary>
+        public int TileType
+        {
+            get { return tileType; }
+            set { tileType = value; }
         }
     }
 }

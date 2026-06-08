@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace BannerCollector
@@ -63,6 +65,12 @@ namespace BannerCollector
                 if (!mod.TryFind(bannerName, out ModItem item))
                     continue;
 
+                // Read the banner's tile + style from the fully-initialized item sample so the
+                // UI can draw the real banner tile (authentic 16x48 look) with no hardcoded
+                // atlas indices. createTile is -1 for the rare banner with no placeable tile,
+                // in which case the UI falls back to the item icon.
+                Item sample = ContentSamples.ItemsByType[item.Type];
+
                 BannerDict[item.Type] = new BannerInfo
                 {
                     ItemId = item.Type,
@@ -71,6 +79,8 @@ namespace BannerCollector
                     IsHardMode = hardModeNames != null && hardModeNames.Contains(bannerName),
                     ModName = modName,
                     UseItemIcon = true,
+                    TileType = sample.createTile,
+                    Index = sample.placeStyle,
                 };
             }
         }
