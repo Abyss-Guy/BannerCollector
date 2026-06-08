@@ -97,6 +97,18 @@ namespace BannerCollector
                     BannerLoad.ModList.Add("VitalityMod");
                     BannerLoad.isModded = true;
                 }
+                //CalamityFables
+                if (ModLoader.HasMod("CalamityFables"))
+                {
+                    BannerLoad.ModList.Add("CalamityFables");
+                    BannerLoad.isModded = true;
+                }
+                //ContinentOfJourney (Homeward Journey)
+                if (ModLoader.HasMod("ContinentOfJourney"))
+                {
+                    BannerLoad.ModList.Add("ContinentOfJourney");
+                    BannerLoad.isModded = true;
+                }
 
                 BannerLoad.LoadBanners();
                 PlayerAssist.LoadPlayerBannerData();

@@ -53,6 +53,16 @@ namespace BannerCollector
             #region VitalityMod
             AddItemIconBanners("VitalityMod", VitalityBanners, VitalityHardModeBanners);
             #endregion
+
+            #region CalamityFables
+            AddItemIconBanners("CalamityFables", CalamityFablesBanners);
+            #endregion
+
+            #region ContinentOfJourney
+            // Homeward Journey: every banner enemy is hardmode (the only pre-hardmode enemy,
+            // Bucket Zombie, has no banner), so the whole list is the hardmode set.
+            AddItemIconBanners("ContinentOfJourney", ContinentOfJourneyBanners, new HashSet<string>(ContinentOfJourneyBanners));
+            #endregion
         }
 
         /// <summary>
@@ -108,6 +118,9 @@ namespace BannerCollector
         // The list is matched against the loaded mod at runtime via Mod.TryFind, so any
         // name missing from a given mod version is simply skipped.
 
+        // ===========================================================================
+        //  CALAMITY
+        // ===========================================================================
         private static readonly string[] CalamityBanners =
         {
             "AcidEelBanner", "AeroSlimeBanner", "AmberCrawlerBanner", "AmethystCrawlerBanner",
@@ -165,6 +178,9 @@ namespace BannerCollector
             "AstraglomerateBanner", "AuroraSpiritBanner", "DraconicSwarmerBanner",
         };
 
+        // ===========================================================================
+        //  CATALYST
+        // ===========================================================================
         private static readonly string[] CatalystBanners =
         {
             "AscendedAstralSlimeBanner", "MetanovaSlimeBanner", "WulfrumMineBanner", "WulfrumSlimeBanner",
@@ -177,6 +193,9 @@ namespace BannerCollector
             "AscendedAstralSlimeBanner", "MetanovaSlimeBanner",
         };
 
+        // ===========================================================================
+        //  THORIUM
+        // ===========================================================================
         private static readonly string[] ThoriumBanners =
         {
             "AbominationBanner", "AbyssalAnglerBanner", "AncientArcherBanner", "AncientChargerBanner",
@@ -223,6 +242,9 @@ namespace BannerCollector
             "UnderworldPotBanner", "VampireSquidBanner", "VileFloaterBanner", "VoltEelBanner",
         };
 
+        // ===========================================================================
+        //  SPIRIT
+        // ===========================================================================
         private static readonly string[] SpiritBanners =
         {
             "AlienBanner", "AncientApostleBanner", "AncientSpectreBanner", "AntlionAssassinBanner", "ArachmatonBanner",
@@ -265,6 +287,9 @@ namespace BannerCollector
             "WanderingSoulBanner",
         };
 
+        // ===========================================================================
+        //  SPIRIT REFORGED
+        // ===========================================================================
         private static readonly string[] SpiritReforgedBanners =
         {
             "CorruptStactusBannerItem", "CrimsonStactusBannerItem", "DecrepitMummyBannerItem",
@@ -280,6 +305,9 @@ namespace BannerCollector
             "HallowedStactusBannerItem",
         };
 
+        // ===========================================================================
+        //  CONSOLARIA
+        // ===========================================================================
         private static readonly string[] ConsolariaBanners =
         {
             "AlbinoAntlionBanner", "AlbinoChargerBanner", "AlbinoSwarmerBanner", "ArchDemonBanner",
@@ -299,6 +327,9 @@ namespace BannerCollector
             "SpectralElementalBanner", "SpectralGastropodBanner", "SpectralMummyBanner",
         };
 
+        // ===========================================================================
+        //  VITALITY
+        // ===========================================================================
         private static readonly string[] VitalityBanners =
         {
             "AmberSlimeBanner", "AmethystSlimeBanner", "AquaticMermanBanner", "BigEaterBanner",
@@ -318,6 +349,41 @@ namespace BannerCollector
             "BoneDemonBanner", "CrystalBasiliskBanner", "DynamiteSnowmanBanner", "FungalTortoiseBanner",
             "IceChimeBanner", "MagmaSharkBanner", "StrangeSaucerBanner", "TaintedBasiliskBanner",
             "VileBasiliskBanner",
+        };
+
+        // ===========================================================================
+        //  CALAMITY FABLES
+        // ===========================================================================
+        // All banners are pre-hardmode (no hardmode banner enemies).
+        private static readonly string[] CalamityFablesBanners =
+        {
+            "BlizzardSpriteBannerItem", "CloudSpriteBannerItem", "GeodeCrawlerBannerItem", "SandstormSpriteBannerItem",
+            "SpelunkerScarabBannerItem", "StormlionBannerItem", "StormlionLarvaBannerItem", "WulfrumGrapplerBannerItem",
+            "WulfrumMagnetizerBannerItem", "WulfrumMortarBannerItem", "WulfrumNexusBannerItem", "WulfrumRollerBannerItem",
+            "WulfrumRoverBannerItem",
+        };
+
+        // ===========================================================================
+        //  HOMEWARD JOURNEY  (ContinentOfJourney)
+        // ===========================================================================
+        // Every banner enemy is hardmode.
+        private static readonly string[] ContinentOfJourneyBanners =
+        {
+            "AbsoluteZeroBanner", "AbyssSkullBanner", "ChewingThingBanner",
+            "CursedLingererBanner", "DeepWeedBanner", "DesertMimicBanner", "DrillerBanner",
+            "DrownedBanner", "EnchantedVineBanner",
+            "EyeholeBanner", "FluorescentAnglerBanner", "FluorescentMelonBanner", "FluorescentSlimeBanner",
+            "FlyingCoffinBanner", "ForbiddenJellyBanner", "ForgottenWarhammerBanner", "GoldenEyeBanner",
+            "GoldenShadowBanner", "ImpMageBanner", "KeyStandBanner", "LinkPustuleBanner",
+            "LivingNestBanner", "LostVikingsBanner", "MagmackerelBanner", "MagmaFlowerBanner",
+            "MeatPotBanner", "MicrorganBanner", "MissleTurtleBanner", "MonarchButterflyBanner",
+            "PharaohsHandBanner", "PolarMimicBanner", "PrehistoricVirusBanner", "PrototypeSlimeBanner",
+            "PurpleShadowBanner", "RoseGardenBanner", "ScarletShadowBanner", "ScreenDoorZombieBanner",
+            "ShadowArmorBanner", "ShadowChomperBanner", "ShadowDiggerBanner", "ShadowEaterBanner",
+            "ShadowEyeBanner", "ShadowOozeBanner", "ShadowSlimeBanner", "ShadowZombieBanner",
+            "ShyGhostBanner", "SlimySpiritBanner", "SolenopsisBanner", "SoulstareBanner",
+            "SunlightDiscipleBanner", "TempleMimicBanner", "ToothyBanner", "ValkyrieBanner",
+            "VoidWeaverBanner", "WardenEyeBanner", "WhiteCultistBanner", "WindElementalBanner",
         };
     }
 }
