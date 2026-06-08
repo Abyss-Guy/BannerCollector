@@ -11,8 +11,15 @@ namespace BannerCollector
 {
     internal static partial class BannerLoad
     {
+        // Diagnostic: curated banner names that did not resolve to an item via Mod.TryFind
+        // during the last load (e.g. a texture-vs-class name mismatch). Surfaced by the
+        // "/discoverbanners" command; does not affect loading.
+        internal static readonly List<string> SkippedBanners = new List<string>();
+
         public static void LoadModBanners()
         {
+            SkippedBanners.Clear();
+
             // Calamity banners are drawn from each item's own icon (UseItemIcon) instead of
             // the Calamity banner atlas, so banner sprites never desync when Calamity adds or
             // removes banners. The name list is matched against the loaded mod at runtime.
@@ -71,7 +78,10 @@ namespace BannerCollector
             foreach (string bannerName in bannerNames)
             {
                 if (!mod.TryFind(bannerName, out ModItem item))
+                {
+                    SkippedBanners.Add($"{modName}/{bannerName}");
                     continue;
+                }
 
                 // Read the banner's tile + style from the fully-initialized item sample so the
                 // UI can draw the real banner tile (authentic 16x48 look) with no hardcoded
