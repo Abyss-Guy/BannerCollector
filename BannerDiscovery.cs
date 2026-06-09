@@ -134,9 +134,10 @@ namespace BannerCollector
             // buff on the correct enemy, using the exact index the buff tile sets at runtime.
             AppendModHealthReport(lines);
 
-            string path = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "My Games", "Terraria", "tModLoader", "BannerDiscovery.txt");
+            // Main.SavePath is the tModLoader save directory on every platform (Windows,
+            // Linux, macOS) and respects a user-customised save path, so the report lands in
+            // the same folder the game itself writes to.
+            string path = Path.Combine(Main.SavePath, "BannerDiscovery.txt");
             File.WriteAllLines(path, lines);
             Main.NewText($"[BannerDiscovery] written to {path}");
         }
