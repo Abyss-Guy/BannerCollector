@@ -109,6 +109,30 @@ namespace BannerCollector
                     BannerLoad.ModList.Add("ContinentOfJourney");
                     BannerLoad.isModded = true;
                 }
+                //Split
+                if (ModLoader.HasMod("Split"))
+                {
+                    BannerLoad.ModList.Add("Split");
+                    BannerLoad.isModded = true;
+                }
+                //ElementsAwoken
+                if (ModLoader.HasMod("ElementsAwoken"))
+                {
+                    BannerLoad.ModList.Add("ElementsAwoken");
+                    BannerLoad.isModded = true;
+                }
+                //Redemption
+                if (ModLoader.HasMod("Redemption"))
+                {
+                    BannerLoad.ModList.Add("Redemption");
+                    BannerLoad.isModded = true;
+                }
+                //SOTS (Secrets of the Shadows)
+                if (ModLoader.HasMod("SOTS"))
+                {
+                    BannerLoad.ModList.Add("SOTS");
+                    BannerLoad.isModded = true;
+                }
 
                 // Sort the mod list alphabetically so the mod-filter dropdown lists mods in
                 // order. The filter is index-mapped against this list (BannerLoad.ModList[

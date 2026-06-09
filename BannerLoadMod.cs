@@ -75,6 +75,22 @@ namespace BannerCollector
             // Bucket Zombie, has no banner), so the whole list is the hardmode set.
             AddItemIconBanners("ContinentOfJourney", ContinentOfJourneyBanners, new HashSet<string>(ContinentOfJourneyBanners));
             #endregion
+
+            #region Split
+            AddItemIconBanners("Split", SplitBanners, SplitHardModeBanners);
+            #endregion
+
+            #region ElementsAwoken
+            AddItemIconBanners("ElementsAwoken", ElementsAwokenBanners, ElementsAwokenHardModeBanners);
+            #endregion
+
+            #region Redemption
+            AddItemIconBanners("Redemption", RedemptionBanners, RedemptionHardModeBanners);
+            #endregion
+
+            #region SOTS
+            AddItemIconBanners("SOTS", SOTSBanners, SOTSHardModeBanners);
+            #endregion
         }
 
         /// <summary>
@@ -490,6 +506,110 @@ namespace BannerCollector
             "ShyGhostBanner", "SlimySpiritBanner", "SolenopsisBanner", "SoulstareBanner",
             "SunlightDiscipleBanner", "TempleMimicBanner", "ToothyBanner", "ValkyrieBanner",
             "VoidWeaverBanner", "WardenEyeBanner", "WhiteCultistBanner", "WindElementalBanner",
+        };
+
+        // ===========================================================================
+        //  SPLIT
+        // ===========================================================================
+        private static readonly string[] SplitBanners =
+        {
+            "CaveImpBanner", "ColossusBanner", "CombusterBanner", "CrabcannonBanner", "DarknutBanner",
+            "EchoBanner", "FacelessPirateBanner", "FairyflyBanner", "FootballZombieBanner", "FortressBanner",
+            "FunkySoulBanner", "GarghoulBanner", "GlassButterflyBanner", "GoldenDroneBanner", "GreatToxicSludgeBanner",
+            "HauntedAnchorBanner", "HeadlessPirateBanner", "HobgoblinBanner", "HuskBanner", "IdlerBanner",
+            "JumpkinBanner", "KnockerBanner", "LatopusBanner", "MagnetoBanner", "MindFlayerBanner",
+            "MoonwalkerBanner", "MuskeletonBanner", "PossessedFrostArmorBanner", "PossessedShadowArmorBanner",
+            "PurpleDroneBanner", "RebelliousWispBanner", "SarraceniaBanner", "SavageBanner", "SentinelBanner",
+            "ShadowCasterBanner", "SheepNPCBanner", "ShinyPixieBanner", "SkeletonJesterBanner",
+            "SpikedLavaSlimeBanner", "ThreaterBanner", "ThrillerBanner", "TrollBanner", "WitnessBanner",
+        };
+
+        private static readonly HashSet<string> SplitHardModeBanners = new HashSet<string>
+        {
+            "DarknutBanner", "GreatToxicSludgeBanner", "HauntedAnchorBanner", "IdlerBanner", "LatopusBanner",
+            "MoonwalkerBanner", "MuskeletonBanner", "SavageBanner", "ShinyPixieBanner", "SkeletonJesterBanner",
+            "ThrillerBanner",
+        };
+
+        // ===========================================================================
+        //  ELEMENTS AWOKEN
+        // ===========================================================================
+        private static readonly string[] ElementsAwokenBanners =
+        {
+            "DesertElementalBanner", "DragonBatBanner", "DragonSlimeBanner", "DragonWarriorBanner",
+            "DrakoniteElementalBanner", "EtherealHunterBanner", "FireElementalBanner", "FlyingJawBanner",
+            "FrostElementalBanner", "GiantTickBanner", "GiantVampireBatBanner", "ImmolatorBanner",
+            "InfernoSpiritBanner", "MortemWalkerBanner", "PebleerBanner", "PetalClasperBanner",
+            "ReaverSlimeBanner", "SkyCrawlerBanner", "SkyElementalBanner", "StellarBatBanner",
+            "StellarEntityBanner", "VampireBatBanner", "VoidCrawlerBanner", "VoidElementalBanner",
+            "VoidGolemBanner", "VoidKnightBanner", "WaterElementalBanner", "ZergCasterBanner",
+        };
+
+        private static readonly HashSet<string> ElementsAwokenHardModeBanners = new HashSet<string>
+        {
+            "EtherealHunterBanner", "FrostElementalBanner", "GiantTickBanner", "GiantVampireBatBanner",
+            "ImmolatorBanner", "InfernoSpiritBanner", "MortemWalkerBanner", "ReaverSlimeBanner",
+            "SkyCrawlerBanner", "SkyElementalBanner", "StellarBatBanner", "StellarEntityBanner",
+            "VoidCrawlerBanner", "VoidElementalBanner", "VoidGolemBanner", "VoidKnightBanner",
+            "WaterElementalBanner", "ZergCasterBanner",
+        };
+
+        // ===========================================================================
+        //  REDEMPTION
+        // ===========================================================================
+        private static readonly string[] RedemptionBanners =
+        {
+            "AncientGladestoneGolemBanner", "AndroidBanner", "BlisteredScientistBanner", "BloatedClingerBanner",
+            "BloatedDiggerBanner", "BloatedFaceMonsterBanner", "BloatedGhoulBanner", "BloatedGoldfishBanner",
+            "BloatedScientistBanner", "BloatedSwarmerBanner", "BlobbleBanner", "BobTheBlobBanner",
+            "BoneSpiderBanner", "ChickenBanner", "ChickenBomberBanner", "ChickenScratcherBanner",
+            "CoastScarabBanner", "CorpseWalkerPriestBanner", "CorruptChickenBanner", "DevilsTongueBanner",
+            "EpidotrianSkeletonBanner", "ForestNymphBanner", "ForretBanner", "GrandLarvaBanner",
+            "HaymakerBanner", "HazmatZombieBanner", "HeadlessChickenBanner", "JollyMadmanBanner",
+            "KabucraBanner", "LivingBloomBanner", "MoonflareBatBanner", "MoonflareSkeletonBanner",
+            "MutatedLivingBloomBanner", "NuclearShadowBanner", "NuclearSlimeBanner", "OozeBlobBanner",
+            "OozingScientistBanner", "PrototypeSilverBanner", "RadioactiveJellyBanner", "RadioactiveSlimeBanner",
+            "RoosterBoosterBanner", "SandskinSpiderBanner", "SickenedBunnyBanner", "SickenedDemonEyeBanner",
+            "SicklyPenguinBanner", "SicklyWolfBanner", "SkeletonAssassinBanner", "SkeletonDuelistBanner",
+            "SkeletonFlagbearerBanner", "SkeletonNobleBanner", "SkeletonWandererBanner", "SkeletonWardenBanner",
+            "SneezyFlinxBanner", "SpacePaladinBanner", "TreeBugBanner", "VagrantSpiritBanner",
+            "ViciousChickenBanner",
+        };
+
+        private static readonly HashSet<string> RedemptionHardModeBanners = new HashSet<string>
+        {
+            "AndroidBanner", "BlisteredScientistBanner", "BloatedClingerBanner", "BloatedDiggerBanner",
+            "BloatedFaceMonsterBanner", "BloatedGhoulBanner", "BloatedGoldfishBanner", "BloatedScientistBanner",
+            "BloatedSwarmerBanner", "BobTheBlobBanner", "HazmatZombieBanner", "MutatedLivingBloomBanner",
+            "NuclearSlimeBanner", "OozeBlobBanner", "OozingScientistBanner", "PrototypeSilverBanner",
+            "RadioactiveJellyBanner", "RadioactiveSlimeBanner", "SickenedBunnyBanner", "SickenedDemonEyeBanner",
+            "SicklyPenguinBanner", "SicklyWolfBanner", "SneezyFlinxBanner", "SpacePaladinBanner",
+        };
+
+        // ===========================================================================
+        //  SECRETS OF THE SHADOWS  (SOTS)
+        // ===========================================================================
+        private static readonly string[] SOTSBanners =
+        {
+            "ArcticGoblinBanner", "BallOGutsBanner", "BallOWormsBanner", "BigPhantarayBanner",
+            "BleedingGhastBanner", "BlueSlimerBanner", "ChimeraBanner", "CoalCartBanner",
+            "CorpsebloomBanner", "CorruptionTreasureSlimeBanner", "CrimsonTreasureSlimeBanner",
+            "DungeonTreasureSlimeBanner", "EarthenGizmoBanner", "FamishedBanner", "FistfullBanner",
+            "FlamingGhastBanner", "FluxSlimeBanner", "FrozenTreasureSlimeBanner", "FurnaceBanner",
+            "GhastBanner", "GoldenTreasureSlimeBanner", "HallowTreasureSlimeBanner", "HoloEyeBanner",
+            "HoloSlimeBanner", "HoloSwordBanner", "JungleTreasureSlimeBanner", "LesserWispBanner",
+            "LostSoulBanner", "MaligmorBanner", "MutagenTreasureSlimeBanner", "NatureSlimeBanner",
+            "PhaseAssaulterBanner", "PhaseSpeederBanner", "PlanetoidBanner", "PupaBanner",
+            "PupaFlyBanner", "PyramidTreasureSlimeBanner", "RotWalkerBanner", "ShadowTreasureSlimeBanner",
+            "SittingMushroomBanner", "SmallPhantarayBanner", "SnakeBanner", "SnakePotBanner",
+            "TeratomaBanner", "ThroeBanner", "TreasureSlimeBanner", "TwilightDevilBanner",
+            "TwilightScouterBanner", "UltracapBanner", "VoidTreasureSlimeBanner", "WallMimicBanner",
+        };
+
+        private static readonly HashSet<string> SOTSHardModeBanners = new HashSet<string>
+        {
+            "BleedingGhastBanner", "ChimeraBanner", "FlamingGhastBanner", "HallowTreasureSlimeBanner",
+            "PhaseAssaulterBanner", "PhaseSpeederBanner", "VoidTreasureSlimeBanner",
         };
     }
 }
