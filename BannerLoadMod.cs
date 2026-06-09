@@ -16,14 +16,21 @@ namespace BannerCollector
         // "/discoverbanners" command; does not affect loading.
         internal static readonly List<string> SkippedBanners = new List<string>();
 
-        // Reverse map (banner item type -> NPC type) built from the game's own NPC banner
-        // association, used to resolve each banner's enemy once at load. See BuildBannerItemToNpcMap.
-        private static readonly Dictionary<int, int> BannerItemToNpc = new Dictionary<int, int>();
+        // Reverse map (banner item type -> engine banner number) built from the game's own banner
+        // registry, used to resolve each banner's real buff index once at load. See
+        // BuildBannerItemToBannerId; it is built in LoadBanners before this file's banners register.
+        private static readonly Dictionary<int, int> BannerItemToBannerId = new Dictionary<int, int>();
+
+        // Banner tile type -> the set of distinct banner numbers whose canonical item sits on that
+        // tile. A tile with exactly one number is a single-enemy banner tile, so EVERY banner item
+        // placed on it grants that enemy's buff - this resolves the extra "head/variant" items a mod
+        // ships for one enemy (e.g. the three Hydra heads all give the Lernean Hydra buff) without
+        // any hardcoding. Built together with BannerItemToBannerId.
+        private static readonly Dictionary<int, HashSet<int>> TileToBannerIds = new Dictionary<int, HashSet<int>>();
 
         public static void LoadModBanners()
         {
             SkippedBanners.Clear();
-            BuildBannerItemToNpcMap();
 
             // Calamity banners are drawn from each item's own icon (UseItemIcon) instead of
             // the Calamity banner atlas, so banner sprites never desync when Calamity adds or
@@ -104,17 +111,21 @@ namespace BannerCollector
                 // in which case the UI falls back to the item icon.
                 Item sample = ContentSamples.ItemsByType[item.Type];
 
-                // Resolve the banner's enemy once, here at load, so granting the nearby-banner
-                // buff later needs no per-frame lookup. Prefer the game's own NPC-to-banner
-                // association (name-independent, authoritative); fall back to matching the NPC
-                // by name for banners whose enemy link is non-standard. -1 means no buff.
-                int npcType = -1;
-                if (BannerItemToNpc.TryGetValue(item.Type, out int associatedNpc))
-                    npcType = associatedNpc;
-                else if (mod.TryFind(GetBannerNpcName(item.Name), out ModNPC fallbackNpc))
-                    npcType = fallbackNpc.Type;
+                // Resolve the banner's real buff number once, here at load, so granting the
+                // nearby-banner buff later needs no per-frame lookup. Prefer the game's own banner
+                // registry (authoritative); fall back to the NPC matched by name and its own banner
+                // number for banners whose item is a non-canonical sibling. -1 means no buff.
+                int bannerId = ResolveBannerNumber(item.Type);
+                if (bannerId < 0
+                    && mod.TryFind(GetBannerNpcName(item.Name), out ModNPC fallbackNpc)
+                    && ContentSamples.NpcsByNetId.TryGetValue(fallbackNpc.Type, out NPC fallbackSample))
+                {
+                    int b = Item.NPCtoBanner(fallbackSample.BannerID());
+                    if (b > 0)
+                        bannerId = b;
+                }
 
-                if (npcType < 0)
+                if (bannerId < 0)
                     SkippedBanners.Add($"{modName}/{bannerName} [NPC not resolved - banner gives no buff]");
 
                 BannerDict[item.Type] = new BannerInfo
@@ -127,41 +138,76 @@ namespace BannerCollector
                     UseItemIcon = true,
                     TileType = sample.createTile,
                     Index = sample.placeStyle,
-                    NpcType = npcType,
+                    BannerId = bannerId,
                 };
             }
         }
 
         /// <summary>
-        /// Builds <see cref="BannerItemToNpc"/> (banner item type -> NPC type) from the game's
-        /// own banner association, i.e. the exact chain the engine uses when an enemy drops its
-        /// banner: NPC -> <see cref="Item.NPCtoBanner"/> -> <see cref="Item.BannerToItem"/>.
-        /// This is the authoritative, name-independent link between a banner and its enemy, so
-        /// the nearby-banner buff is granted to the correct NPC for any mod regardless of how it
-        /// names its banner items.
+        /// Builds <see cref="BannerItemToBannerId"/> (banner item type -> engine banner number)
+        /// from the game's own banner registry, i.e. the exact chain the engine uses when an enemy
+        /// drops its banner: NPC -> <see cref="Item.NPCtoBanner"/> -> <see cref="Item.BannerToItem"/>.
+        /// The stored value is the banner number itself - the authoritative index into
+        /// <see cref="Terraria.SceneMetrics.NPCBannerBuff"/> - so the buff is always granted for the
+        /// banner's real enemy, for vanilla and any mod alike. Every entry satisfies
+        /// <c>BannerToItem(value) == key</c> by construction, so a resolved banner is provably correct.
+        /// Called once from LoadBanners (unconditionally, so vanilla works with no mods loaded).
         /// </summary>
-        private static void BuildBannerItemToNpcMap()
+        private static void BuildBannerItemToBannerId()
         {
-            BannerItemToNpc.Clear();
-            for (int npcType = 0; npcType < NPCLoader.NPCCount; npcType++)
+            BannerItemToBannerId.Clear();
+            TileToBannerIds.Clear();
+            // Iterate every net id, not just 0..NPCCount: many vanilla enemies (the coloured
+            // slimes, Pinky, etc.) are negative-net-id variants of a base type and would be
+            // skipped by a type-range walk, losing their banner entirely.
+            foreach (NPC npc in ContentSamples.NpcsByNetId.Values)
             {
-                if (!ContentSamples.NpcsByNetId.TryGetValue(npcType, out NPC npc))
-                    continue;
-
                 int banner = Item.NPCtoBanner(npc.BannerID());
                 if (banner <= 0)
                     continue;
 
                 int itemType = Item.BannerToItem(banner);
-                if (itemType > 0 && !BannerItemToNpc.ContainsKey(itemType))
-                    BannerItemToNpc[itemType] = npcType;
+                if (itemType <= 0)
+                    continue;
+
+                if (!BannerItemToBannerId.ContainsKey(itemType))
+                    BannerItemToBannerId[itemType] = banner;
+
+                // Record which banner tile this banner's canonical item sits on, so a banner item
+                // that is not itself in the registry can still be resolved when its tile is dedicated
+                // to a single enemy.
+                if (ContentSamples.ItemsByType.TryGetValue(itemType, out Item itemSample) && itemSample.createTile >= 0)
+                {
+                    if (!TileToBannerIds.TryGetValue(itemSample.createTile, out HashSet<int> ids))
+                        TileToBannerIds[itemSample.createTile] = ids = new HashSet<int>();
+                    ids.Add(banner);
+                }
             }
+        }
+
+        /// <summary>
+        /// Resolves a banner item to its engine banner number (the index written to
+        /// <see cref="Terraria.SceneMetrics.NPCBannerBuff"/>). Prefers the authoritative
+        /// registry; if the item is not itself a registered banner, it falls back to the banner of
+        /// its tile when that tile is dedicated to a single enemy (so the extra head/variant items a
+        /// mod ships for one enemy still grant that enemy's buff). Returns -1 if unresolved.
+        /// </summary>
+        private static int ResolveBannerNumber(int itemType)
+        {
+            if (BannerItemToBannerId.TryGetValue(itemType, out int banner))
+                return banner;
+
+            if (ContentSamples.ItemsByType.TryGetValue(itemType, out Item sample) && sample.createTile >= 0
+                && TileToBannerIds.TryGetValue(sample.createTile, out HashSet<int> ids) && ids.Count == 1)
+                return ids.First();
+
+            return -1;
         }
 
         /// <summary>
         /// Derives the likely NPC internal name from a banner item's internal name by removing
         /// the trailing "BannerItem" (Spirit Reforged) or "Banner" suffix. Used only as a
-        /// fallback when the game's NPC-to-banner association (<see cref="BannerItemToNpc"/>)
+        /// fallback when the game's banner registry (<see cref="BannerItemToBannerId"/>)
         /// does not cover a banner.
         /// </summary>
         private static string GetBannerNpcName(string itemName)

@@ -2692,6 +2692,17 @@ namespace BannerCollector
 
             #endregion
 
+            // Resolve the authoritative banner number for every banner from the engine's own banner
+            // registry, so the buff is granted by the real banner number instead of a proxy. Built
+            // here unconditionally because vanilla banners need it even with no mods loaded; modded
+            // banners then read the same map while registering inside LoadModBanners.
+            BuildBannerItemToBannerId();
+            foreach (BannerInfo banner in BannerDict.Values)
+            {
+                if (banner.ModName == null)
+                    banner.BannerId = ResolveBannerNumber(banner.ItemId);
+            }
+
             if (isModded)
             {
                 LoadModBanners();
@@ -2716,7 +2727,7 @@ namespace BannerCollector
         private string modName = null;
         private bool useItemIcon = false;
         private int tileType = -1;
-        private int npcType = -1;
+        private int bannerId = -1;
 
         public int ItemId
         {
@@ -2785,15 +2796,18 @@ namespace BannerCollector
         }
 
         /// <summary>
-        /// NPC type whose banner this is (the enemy whose kills the banner counts), or -1 if it
-        /// could not be resolved at load. Resolved once during registration from the game's own
-        /// NPC-to-banner association (with a name-based fallback) and used to grant the vanilla
-        /// nearby-banner buff, so no per-frame NPC lookup is needed.
+        /// The engine banner number this banner grants the nearby-banner buff for (the index into
+        /// <see cref="Terraria.SceneMetrics.NPCBannerBuff"/>), or -1 if it could not be resolved.
+        /// Resolved once at load from the game's own banner registry
+        /// (<c>NPC -> Item.NPCtoBanner -> Item.BannerToItem == this item</c>) so the buff tile just
+        /// writes a precomputed value and always targets the banner's real enemy. This is the
+        /// authoritative banner number, not a proxy (the old code used the tile style or the NPC
+        /// type, which only coincided with the banner number for most - but not all - banners).
         /// </summary>
-        public int NpcType
+        public int BannerId
         {
-            get { return npcType; }
-            set { npcType = value; }
+            get { return bannerId; }
+            set { bannerId = value; }
         }
     }
 }

@@ -46,22 +46,12 @@ namespace BannerCollector.Tiles
             }
             foreach (var banner in bannerListToBuff)
             {
-                int bannerIndex;
-                if (banner.ModName == null)
-                {
-                    bannerIndex = banner.Index - 21; // vanilla path, unchanged
-                }
-                else
-                {
-                    // Modded banners use the NpcType resolved once at load via the game's
-                    // own NPC-to-banner association (BannerLoadMod.BuildBannerItemToNpcMap),
-                    // with a name-based fallback. -1 means it could not be resolved (logged
-                    // into SkippedBanners at load) and the banner simply grants no buff.
-                    if (banner.NpcType < 0)
-                        continue;
-                    bannerIndex = banner.NpcType;
-                }
-                Main.SceneMetrics.NPCBannerBuff[bannerIndex] = true;
+                // BannerId is the real engine banner number, resolved once at load for vanilla and
+                // modded banners alike (BannerLoad.BuildBannerItemToBannerId). -1 means it could not
+                // be resolved (logged into SkippedBanners) and the banner simply grants no buff.
+                if (banner.BannerId < 0)
+                    continue;
+                Main.SceneMetrics.NPCBannerBuff[banner.BannerId] = true;
             }
             Main.SceneMetrics.hasBanner = true;
         }

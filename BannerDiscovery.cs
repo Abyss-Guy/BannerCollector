@@ -202,7 +202,7 @@ namespace BannerCollector
                 string itemName = Lang.GetItemNameValue(banner.ItemId);
 
                 // The exact index BannerBuffTile.NearbyEffects writes for this banner.
-                int buffIndex = banner.ModName == null ? banner.Index - 21 : banner.NpcType;
+                int buffIndex = banner.BannerId;
 
                 if (buffIndex < 0 || buffIndex >= buffArrayLength)
                 {
