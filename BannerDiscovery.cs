@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -127,12 +128,188 @@ namespace BannerCollector
             // name mismatches that would otherwise silently drop a banner).
             lines.Add($"### SKIPPED / not found ({BannerLoad.SkippedBanners.Count})");
             lines.AddRange(BannerLoad.SkippedBanners.OrderBy(n => n));
+            lines.Add(string.Empty);
+
+            // Health report: verifies that every banner WE registered actually grants a working
+            // buff on the correct enemy, using the exact index the buff tile sets at runtime.
+            AppendModHealthReport(lines);
 
             string path = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "My Games", "Terraria", "tModLoader", "BannerDiscovery.txt");
             File.WriteAllLines(path, lines);
             Main.NewText($"[BannerDiscovery] written to {path}");
+        }
+
+        /// <summary>
+        /// Appends a health report that verifies every banner WE registered
+        /// (<see cref="BannerLoad.BannerDict"/>) actually grants a working nearby-banner buff on
+        /// the correct enemy. It is grounded entirely in engine data - for each banner it computes
+        /// the EXACT index the buff tile writes at runtime
+        /// (<see cref="BannerInfo.BannerId"/>) and validates it:
+        ///   OK proven - <see cref="Item.BannerToItem"/> of the index is this exact banner item,
+        ///             so the buff provably protects against this banner's own enemy;
+        ///   OK name - the index points at a real enemy whose name matches the banner;
+        ///   CHECK   - the index points at a real enemy whose name does NOT match (shown to verify);
+        ///   BROKEN  - the index is a number but no enemy maps to it (grants nothing).
+        /// When the index does not resolve, the mod can grant no buff for that banner:
+        ///   FIXABLE    - the same enemy has a banner under a DIFFERENT item id (a wrong id to fix);
+        ///   UNRESOLVED - nothing maps it and its banner tile is shared by several enemies, so the
+        ///                enemy is ambiguous from engine data; flagged for an in-game check, not a
+        ///                guess. Single-enemy-tile items are resolved upstream and never land here.
+        /// Nothing here guesses: it reports what the engine returns.
+        /// </summary>
+        private static void AppendModHealthReport(List<string> lines)
+        {
+            Dictionary<int, int> bannerToNpc = BuildBannerToNpc();
+            int buffArrayLength = Main.SceneMetrics.NPCBannerBuff.Length;
+
+            // Normalised enemy name -> its canonical banner item, so a NO BUFF banner can be told
+            // apart: the enemy has a real banner under a different item id (wrong id, fixable) or
+            // the enemy has no banner at all (the entry is bogus and should be removed).
+            var enemyToBannerItem = new Dictionary<string, int>();
+            foreach (KeyValuePair<int, int> pair in bannerToNpc)
+            {
+                string enemyKey = NameKey(EnemyName(pair.Value));
+                if (!enemyToBannerItem.ContainsKey(enemyKey))
+                    enemyToBannerItem[enemyKey] = Item.BannerToItem(pair.Key);
+            }
+
+            var detail = new List<string>();
+            // How many distinct banner numbers sit on each banner tile, so an unresolved banner can
+            // be described accurately (a tile shared by many enemies is ambiguous; a tile with one
+            // is single-enemy and would already have resolved).
+            var tileBannerCount = new Dictionary<int, HashSet<int>>();
+            foreach (KeyValuePair<int, int> pair in bannerToNpc)
+            {
+                int it = Item.BannerToItem(pair.Key);
+                if (it > 0 && ContentSamples.ItemsByType.TryGetValue(it, out Item s) && s.createTile >= 0)
+                {
+                    if (!tileBannerCount.TryGetValue(s.createTile, out HashSet<int> set))
+                        tileBannerCount[s.createTile] = set = new HashSet<int>();
+                    set.Add(pair.Key);
+                }
+            }
+
+            int total = 0, proven = 0, nameOk = 0, check = 0, broken = 0, fixable = 0, unresolved = 0;
+
+            foreach (BannerInfo banner in BannerLoad.BannerDict.Values
+                .OrderBy(b => b.ModName ?? "Terraria", StringComparer.Ordinal)
+                .ThenBy(b => b.ItemName, StringComparer.Ordinal))
+            {
+                total++;
+                string mod = banner.ModName ?? "Terraria";
+                string itemName = Lang.GetItemNameValue(banner.ItemId);
+
+                // The exact index BannerBuffTile.NearbyEffects writes for this banner.
+                int buffIndex = banner.ModName == null ? banner.Index - 21 : banner.NpcType;
+
+                if (buffIndex < 0 || buffIndex >= buffArrayLength)
+                {
+                    string expected = StripBannerSuffix(itemName);
+
+                    // The mod could not resolve a banner number for this item (not in the registry,
+                    // and not on a single-enemy tile). Report it honestly instead of guessing:
+                    //   FIXABLE    - the same enemy DOES have a banner under a different item id;
+                    //   UNRESOLVED - the mod grants no buff for it; its banner tile is shared by
+                    //                several enemies, so which enemy it belongs to is ambiguous from
+                    //                engine data alone. Verify in-game before changing anything.
+                    if (enemyToBannerItem.TryGetValue(NameKey(expected), out int realItem) && realItem != banner.ItemId)
+                    {
+                        fixable++;
+                        detail.Add($"[FIXABLE]    {mod} | {itemName}: engine has a '{expected}' banner at item id {realItem} ('{Lang.GetItemNameValue(realItem)}'); our item id {banner.ItemId} is wrong - fix the id");
+                    }
+                    else
+                    {
+                        unresolved++;
+                        Item sample = ContentSamples.ItemsByType.TryGetValue(banner.ItemId, out Item s2) ? s2 : null;
+                        int tile = sample?.createTile ?? -1;
+                        int onTile = tile >= 0 && tileBannerCount.TryGetValue(tile, out HashSet<int> set) ? set.Count : 0;
+                        detail.Add($"[UNRESOLVED] {mod} | {itemName} (item {banner.ItemId}): mod grants no buff; banner tile {tile} carries {onTile} different banners (ambiguous). Place it in-game and read the buff tooltip - if it grants nothing it is not a real banner.");
+                    }
+                    continue;
+                }
+                if (!bannerToNpc.TryGetValue(buffIndex, out int npcType))
+                {
+                    broken++;
+                    detail.Add($"[BROKEN]  {mod} | {itemName}: buff #{buffIndex} is not a real banner -> buff does nothing");
+                    continue;
+                }
+
+                if (Item.BannerToItem(buffIndex) == banner.ItemId)
+                {
+                    proven++; // round-trips to this exact banner item: provably correct enemy
+                    continue;
+                }
+
+                string enemy = EnemyName(npcType);
+                if (NameKey(StripBannerSuffix(itemName)) == NameKey(enemy))
+                {
+                    nameOk++;
+                    continue;
+                }
+
+                check++;
+                detail.Add($"[CHECK]   {mod} | {itemName}: buff protects against '{enemy}' (#{buffIndex}); banner name suggests '{StripBannerSuffix(itemName)}'");
+            }
+
+            int directBuff = proven + nameOk + check;
+            lines.Add("### MOD HEALTH REPORT  (does every banner WE register buff the right enemy?)");
+            lines.Add($"total registered banners : {total}");
+            lines.Add($"OK proven                : {proven}   (buff round-trips to this banner's own enemy)");
+            lines.Add($"OK name-match            : {nameOk}   (buff hits an enemy whose name matches the banner)");
+            lines.Add($"CHECK                    : {check}   (buff hits a real enemy, name differs - verify below)");
+            lines.Add($"FIXABLE                  : {fixable}   (the enemy has a banner under a different item id - fix the id)");
+            lines.Add($"BROKEN                   : {broken}   (buff index is a number with no enemy - grants nothing)");
+            lines.Add($"UNRESOLVED               : {unresolved}   (mod grants no buff; ambiguous tile - verify in-game before deciding)");
+            lines.Add($"=> working banners: {directBuff} / {total};  need attention: {fixable + broken + unresolved}");
+            lines.Add(string.Empty);
+            lines.Add("Banners not directly proven (CHECK = works, verify enemy; FIXABLE = fix id; UNRESOLVED = check in-game; BROKEN = wrong number):");
+            if (detail.Count == 0)
+                lines.Add("  (none - every registered banner grants a buff that lands on the matching enemy)");
+            else
+                lines.AddRange(detail);
+        }
+
+        /// <summary>
+        /// Maps each engine banner number to a representative NPC net id, built from the game's own
+        /// association (<see cref="Item.NPCtoBanner"/> over EVERY net id, including the negative-id
+        /// variant NPCs - coloured slimes, Pinky, etc. - that a 0..NPCCount walk would skip).
+        /// Read-only.
+        /// </summary>
+        private static Dictionary<int, int> BuildBannerToNpc()
+        {
+            var map = new Dictionary<int, int>();
+            foreach (KeyValuePair<int, NPC> pair in ContentSamples.NpcsByNetId)
+            {
+                int banner = Item.NPCtoBanner(pair.Value.BannerID());
+                if (banner > 0 && !map.ContainsKey(banner))
+                    map[banner] = pair.Key;
+            }
+            return map;
+        }
+
+        /// <summary>Display name of an NPC by net id, correct for negative-id variants too.</summary>
+        private static string EnemyName(int netId)
+            => ContentSamples.NpcsByNetId.TryGetValue(netId, out NPC npc) ? npc.TypeName : netId.ToString();
+
+        /// <summary>Removes a trailing "Banner" word from a display name (e.g. "Blue Slime Banner" -> "Blue Slime").</summary>
+        private static string StripBannerSuffix(string name)
+        {
+            name = name.Trim();
+            if (name.EndsWith("Banner", StringComparison.OrdinalIgnoreCase))
+                name = name.Substring(0, name.Length - "Banner".Length).Trim();
+            return name;
+        }
+
+        /// <summary>Normalises a name to letters/digits only, lower-case, for tolerant comparison.</summary>
+        private static string NameKey(string s)
+        {
+            var sb = new StringBuilder(s.Length);
+            foreach (char c in s)
+                if (char.IsLetterOrDigit(c))
+                    sb.Append(char.ToLowerInvariant(c));
+            return sb.ToString();
         }
     }
 
