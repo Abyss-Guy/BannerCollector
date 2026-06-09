@@ -328,6 +328,12 @@ namespace BannerCollector
 
         public void SetDefault()
         {
+            // Rebuild from scratch so repeated world loads don't accumulate stale entries.
+            // Index order must match BannerUI's filter values: 0 = all, 1 = Terraria (vanilla),
+            // 2.. = each mod of the (alphabetically sorted) ModList.
+            filteringText.Clear();
+            filteringText.Add("Filter All Mods");
+            filteringText.Add("Filter Terraria");
             if (BannerLoad.isModded)
             {
                 foreach (var text in BannerLoad.ModList)

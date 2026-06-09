@@ -50,7 +50,7 @@ namespace BannerCollector
         private bool Sorting = false;
         private int filter = 0; //0: 전체, 1: 보유함. 2:미보유
         private int filterMode = 0; //0: 전체, 1: 하드모드 이전. 2:하드모드
-        private int filterMod = 0; //0: 모든 모드, 1~모드목록
+        private int filterMod = 0; //0: all, 1: vanilla (Terraria), 2..: ModList[filterMod-2]
         public void SetFirstPage()
         {
             page = 1;
@@ -266,11 +266,11 @@ namespace BannerCollector
 
             if (BannerLoad.isModded)
             {
-                if (filterMod == 0) { }
-                else
-                {
-                    bannerList.RemoveAll(banner => banner.ModName != BannerLoad.ModList[filterMod - 1]);
-                }
+                if (filterMod == 0) { }                                  // all
+                else if (filterMod == 1)                                 // Terraria: vanilla banners only
+                    bannerList.RemoveAll(banner => banner.ModName != null);
+                else                                                     // a specific mod
+                    bannerList.RemoveAll(banner => banner.ModName != BannerLoad.ModList[filterMod - 2]);
             }
 
             totalPages = (int)Math.Ceiling((double)bannerList.Count / 20);
@@ -356,10 +356,11 @@ namespace BannerCollector
         }
 
         /// <summary>
-        /// Rebuilds the mod-filter dropdown rows from the (alphabetically sorted)
-        /// <see cref="BannerLoad.ModList"/>: one "All Mods" row plus one row per mod. Each row
-        /// carries the filter value it selects so picking it maps straight onto the existing
-        /// index-based filter (<c>filterMod</c>).
+        /// Rebuilds the mod-filter dropdown rows: "All Mods", then "Terraria" (vanilla banners
+        /// only), then one row per mod from the (alphabetically sorted)
+        /// <see cref="BannerLoad.ModList"/>. Each row carries the filter value it selects so
+        /// picking it maps straight onto the index-based filter (<c>filterMod</c>): 0 = all,
+        /// 1 = vanilla, 2.. = ModList[filterMod-2].
         /// </summary>
         private void BuildModEntries()
         {
@@ -377,12 +378,14 @@ namespace BannerCollector
                 return;
             }
 
-            modEntries = new ButtonModEntry[BannerLoad.ModList.Count + 1];
+            modEntries = new ButtonModEntry[BannerLoad.ModList.Count + 2];
             modEntries[0] = new ButtonModEntry("All Mods");
             modEntries[0].OnLeftClick += (evt, listeningElement) => SelectMod(0);
+            modEntries[1] = new ButtonModEntry("Terraria"); // vanilla banners only
+            modEntries[1].OnLeftClick += (evt, listeningElement) => SelectMod(1);
             for (int i = 0; i < BannerLoad.ModList.Count; i++)
             {
-                int value = i + 1; // 0 is reserved for "All Mods"
+                int value = i + 2; // 0 = All Mods, 1 = Terraria (vanilla)
                 modEntries[value] = new ButtonModEntry(BannerLoad.ModList[i]);
                 modEntries[value].OnLeftClick += (evt, listeningElement) => SelectMod(value);
             }
