@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Terraria.UI;
+using Terraria.GameContent.UI.Elements;
 using BannerCollector.Resources;
 using System.Windows.Forms;
 using rail;
@@ -31,6 +32,12 @@ namespace BannerCollector
         ButtonFilter buttonFilter;
         ButtonFilterMode buttonFilterMode;
         ButtonFilterMod buttonFilterMod;
+        ButtonModEntry[] modEntries;
+        UIPanel modDropdownPanel;
+        bool modDropdownOpen;
+        bool modPrevMouseLeft; // previous-frame left button state, for outside-click detection
+        const float DropdownPadding = 8f; // inner gap between the panel border and the rows
+        const float DropdownGap = 4f;     // gap between the filter button and the panel
         ButtonClose buttonClose;
         BannerSlot[] bannerSlot;
         ButtonPage[] buttonPage;
@@ -106,6 +113,7 @@ namespace BannerCollector
                 }
                 else
                 {
+                    CloseModDropdown();
                     RemoveChild(bannerPanel);
                     RemoveChild(buttonLeft);
                     RemoveChild(buttonRight);
@@ -324,7 +332,6 @@ namespace BannerCollector
             buttonFilterMode.OnMouseOver += ButtonMouseOver;
             buttonFilterMod = new ButtonFilterMod();
             buttonFilterMod.OnLeftClick += ButtonFilterModClicked;
-            buttonFilterMod.OnRightClick += ButtonFilterModRightClicked;
             buttonFilterMod.OnMouseOver += ButtonMouseOver;
             buttonClose = new ButtonClose();
             buttonClose.OnLeftClick += ButtonCloseClicked;
@@ -345,6 +352,105 @@ namespace BannerCollector
         public void ButtonModSetDefault()
         {
             buttonFilterMod.SetDefault();
+            BuildModEntries();
+        }
+
+        /// <summary>
+        /// Rebuilds the mod-filter dropdown rows from the (alphabetically sorted)
+        /// <see cref="BannerLoad.ModList"/>: one "All Mods" row plus one row per mod. Each row
+        /// carries the filter value it selects so picking it maps straight onto the existing
+        /// index-based filter (<c>filterMod</c>).
+        /// </summary>
+        private void BuildModEntries()
+        {
+            CloseModDropdown();
+            modDropdownPanel = null;
+
+            // Reset the filter to "All Mods" on every (re)build, so a selection kept from a
+            // previous world can never index past a now-shorter ModList in SortFilterList.
+            filterMod = 0;
+            buttonFilterMod.ChangeState(0);
+
+            if (!BannerLoad.isModded)
+            {
+                modEntries = new ButtonModEntry[0];
+                return;
+            }
+
+            modEntries = new ButtonModEntry[BannerLoad.ModList.Count + 1];
+            modEntries[0] = new ButtonModEntry("All Mods");
+            modEntries[0].OnLeftClick += (evt, listeningElement) => SelectMod(0);
+            for (int i = 0; i < BannerLoad.ModList.Count; i++)
+            {
+                int value = i + 1; // 0 is reserved for "All Mods"
+                modEntries[value] = new ButtonModEntry(BannerLoad.ModList[i]);
+                modEntries[value].OnLeftClick += (evt, listeningElement) => SelectMod(value);
+            }
+
+            // Authentic Terraria panel framing the rows, with equal padding above the first
+            // and below the last row.
+            modDropdownPanel = new UIPanel();
+            modDropdownPanel.BackgroundColor = new Color(40, 50, 90);   // opaque (A = 255)
+            modDropdownPanel.BorderColor = new Color(13, 17, 35);       // opaque dark border
+            modDropdownPanel.Width.Set(ButtonModEntry.RowWidth + DropdownPadding * 2f, 0f);
+            modDropdownPanel.Height.Set(modEntries.Length * ButtonModEntry.RowHeight + DropdownPadding * 2f, 0f);
+        }
+
+        /// <summary>Opens the dropdown if closed, closes it if open.</summary>
+        private void ToggleModDropdown()
+        {
+            if (modDropdownOpen)
+                CloseModDropdown();
+            else
+                OpenModDropdown();
+        }
+
+        /// <summary>
+        /// Appends the dropdown rows in a vertical column directly below the mod-filter button.
+        /// Rows are appended last so they draw on top of the banner grid.
+        /// </summary>
+        private void OpenModDropdown()
+        {
+            if (modEntries == null || modEntries.Length == 0 || modDropdownPanel == null)
+                return;
+
+            float panelLeft = buttonFilterMod.Left.Pixels;
+            float panelTop = buttonFilterMod.Top.Pixels + buttonFilterMod.Height.Pixels + DropdownGap;
+            modDropdownPanel.Left.Set(panelLeft, 0f);
+            modDropdownPanel.Top.Set(panelTop, 0f);
+            Append(modDropdownPanel); // appended first so the rows draw on top of it
+
+            float rowLeft = panelLeft + DropdownPadding;
+            float rowTop = panelTop + DropdownPadding;
+            for (int i = 0; i < modEntries.Length; i++)
+            {
+                modEntries[i].Left.Set(rowLeft, 0f);
+                modEntries[i].Top.Set(rowTop + i * ButtonModEntry.RowHeight, 0f);
+                Append(modEntries[i]);
+            }
+            modDropdownOpen = true;
+        }
+
+        /// <summary>Removes the dropdown rows. Safe to call when already closed.</summary>
+        private void CloseModDropdown()
+        {
+            if (modDropdownPanel != null)
+                RemoveChild(modDropdownPanel);
+            if (modEntries != null)
+            {
+                foreach (var entry in modEntries)
+                    RemoveChild(entry);
+            }
+            modDropdownOpen = false;
+        }
+
+        /// <summary>Applies the picked mod filter, closes the dropdown and refreshes the list.</summary>
+        private void SelectMod(int value)
+        {
+            buttonFilterMod.ChangeState(value);
+            filterMod = value;
+            CloseModDropdown();
+            SortFilterList();
         }
         
         public  void ShowBannerCollection(bool show)
@@ -367,21 +473,28 @@ namespace BannerCollector
                 BannerButtonBuilderToggle.Instance.CurrentState = 0;
             }
             base.Update(gameTime);
+
+            // Close the mod dropdown when a fresh left click lands outside it (and outside the
+            // button that toggles it). Uses own up->down edge detection rather than
+            // Main.mouseLeftRelease, which the UI system clears while handling the click.
+            // Runs after base.Update so a click that opened it or picked a row already ran and
+            // counts as "inside".
+            bool freshClick = Main.mouseLeft && !modPrevMouseLeft;
+            modPrevMouseLeft = Main.mouseLeft;
+            if (modDropdownOpen && freshClick)
+            {
+                Vector2 mouse = Main.MouseScreen;
+                bool inside = (modDropdownPanel != null && modDropdownPanel.ContainsPoint(mouse))
+                    || buttonFilterMod.ContainsPoint(mouse);
+                if (!inside)
+                    CloseModDropdown();
+            }
         }
 
         #region 이벤트 관련 메서드
         private void ButtonFilterModClicked(UIMouseEvent evt, UIElement listeningElement)
         {
-            buttonFilterMod.ChangeState((buttonFilterMod.filterIndex + 1) % buttonFilterMod.modNum);
-            filterMod = buttonFilterMod.filterIndex;
-            SortFilterList();
-        }
-
-        private void ButtonFilterModRightClicked(UIMouseEvent evt, UIElement listeningElement)
-        {
-            buttonFilterMod.ChangeState((buttonFilterMod.filterIndex + buttonFilterMod.modNum -1) % buttonFilterMod.modNum);
-            filterMod = buttonFilterMod.filterIndex;
-            SortFilterList();
+            ToggleModDropdown();
         }
 
         private void ButtonMouseOver(UIMouseEvent evt, UIElement listeningElement)

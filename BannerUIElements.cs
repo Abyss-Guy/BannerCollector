@@ -374,6 +374,51 @@ namespace BannerCollector
         }
     }
 
+    /// <summary>
+    /// A single clickable row of the mod-filter dropdown opened from <see cref="ButtonFilterMod"/>.
+    /// Holds the filter value it selects (0 = all mods, 1..N = the matching entry of
+    /// <see cref="BannerLoad.ModList"/>) and draws its label, highlighting while hovered.
+    /// The rows are created and positioned by <see cref="BannerUI"/>.
+    /// </summary>
+    internal class ButtonModEntry : BannerUIElements
+    {
+        public const float RowWidth = 300f;
+        public const float RowHeight = 30f;
+
+        private readonly string label;
+
+        public ButtonModEntry(string label)
+        {
+            this.label = label;
+            Width.Pixels = RowWidth;
+            Height.Pixels = RowHeight;
+        }
+
+        public override void Update(GameTime gameTime) { }
+
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (ContainsPoint(Main.MouseScreen) && !PlayerInput.IgnoreMouseInterface)
+                HideMouseOverInteractions();
+
+            base.Draw(spriteBatch);
+
+            Rectangle inner = GetInnerDimensions().ToRectangle();
+            bool hovered = ContainsPoint(Main.MouseScreen);
+
+            // Only the hovered row is highlighted; the surrounding UIPanel provides the frame.
+            if (hovered)
+                spriteBatch.Draw(TextureAssets.MagicPixel.Value, inner, new Color(120, 120, 160) * 0.5f);
+
+            var font = FontAssets.MouseText.Value;
+            const float scale = 1.2f;
+            Vector2 textSize = font.MeasureString(label) * scale;
+            Vector2 textPos = new Vector2(inner.X + 6, inner.Y + (inner.Height - textSize.Y) / 2f);
+            Color textColor = hovered ? Color.White : new Color(220, 220, 220);
+            spriteBatch.DrawString(font, label, textPos, textColor, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+        }
+    }
+
 
     internal class ButtonPage : BannerUIElements
     {

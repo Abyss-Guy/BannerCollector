@@ -110,6 +110,12 @@ namespace BannerCollector
                     BannerLoad.isModded = true;
                 }
 
+                // Sort the mod list alphabetically so the mod-filter dropdown lists mods in
+                // order. The filter is index-mapped against this list (BannerLoad.ModList[
+                // filterMod - 1] in BannerUI.SortFilterList), so sorting it here is the single
+                // source of truth for both the dropdown order and the filter mapping.
+                BannerLoad.ModList.Sort();
+
                 BannerLoad.LoadBanners();
                 PlayerAssist.LoadPlayerBannerData();
                 bannerUI.InitializePage();
