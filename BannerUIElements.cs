@@ -18,6 +18,7 @@ using Terraria.UI;
 using System.Windows.Forms;
 using Terraria.ID;
 using Terraria.GameContent.Tile_Entities;
+using Terraria.ObjectData;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Terraria.Audio;
 
@@ -627,32 +628,71 @@ namespace BannerCollector
 
         /// <summary>
         /// Draws a mod banner from its real banner tile (<see cref="BannerInfo.TileType"/>),
-        /// selecting the frame with <see cref="BannerInfo.Index"/> (the item's placeStyle).
-        /// This produces the authentic vanilla 16x48 three-frame banner look. The frame layout
-        /// (18px wide, 54px tall cells) matches standard banner tiles; falls back to the item
-        /// icon if the tile texture is missing.
+        /// selecting the style with <see cref="BannerInfo.Index"/> (the item's placeStyle), for
+        /// the authentic vanilla three-frame banner look. The cell geometry (frame size and
+        /// padding) is read from the tile's own <see cref="TileObjectData"/> so banners authored
+        /// at any resolution render at full quality, and the frames are drawn with point sampling
+        /// so the sheet's inter-frame padding never bleeds into coloured lines at a non-100% UI
+        /// scale. Falls back to the item icon if the tile texture is missing.
         /// </summary>
         private void DrawTileBanner(SpriteBatch spriteBatch)
         {
             Main.instance.LoadTiles(bannerInfo.TileType);
             Texture2D texture = TextureAssets.Tile[bannerInfo.TileType].Value;
-            int widthCount = texture != null ? texture.Width / 18 : 0;
-            if (widthCount <= 0)
+            if (texture == null)
             {
                 DrawModBannerIcon(spriteBatch); // tile sheet not usable -> fall back to the icon
                 return;
             }
 
+            // Real cell geometry from the tile's own object data (frame size, padding, frame
+            // count), instead of assuming a 16px / 18px-stride sheet. Falls back to the standard
+            // banner layout when unavailable.
+            TileObjectData data = TileObjectData.GetTileData(bannerInfo.TileType, bannerInfo.Index);
+            int cellW = Math.Max(1, data?.CoordinateWidth ?? 16);
+            int padding = Math.Max(0, data?.CoordinatePadding ?? 2);
+            int frameH = Math.Max(1, data?.CoordinateHeights != null && data.CoordinateHeights.Length > 0 ? data.CoordinateHeights[0] : 16);
+            int frameCount = Math.Max(1, data?.Height ?? 3);
+
+            int strideX = cellW + padding;
+            int strideY = frameH + padding;
+            int cellH = frameCount * strideY;                       // full banner height in the sheet
+            int widthCount = Math.Max(1, texture.Width / strideX);
+            int srcX = (bannerInfo.Index % widthCount) * strideX;
+            int srcY = (bannerInfo.Index / widthCount) * cellH;
+
+            // Fit the whole banner into the slot (downscaling high-res sheets, never cropping).
+            float scale = Math.Min(Width.Pixels / cellW, Height.Pixels / (frameCount * frameH));
+            int drawW = Math.Max(1, (int)Math.Round(cellW * scale));
+            float frameScreenH = frameH * scale;
+            int baseX = (int)Math.Round(this.Left.Pixels + (Width.Pixels - drawW) / 2f);
+            int baseY = (int)Math.Round(this.Top.Pixels);
             Color color = bannerInfo.BannerCount == 0 ? new Color(143, 143, 143) : Color.White;
-            int imagePosX = (bannerInfo.Index % widthCount) * 18;
-            int imagePosY = (bannerInfo.Index / widthCount) * 54;
-            const float textureScale = 1.02f;
-            for (int f = 0; f < 3; f++)
+
+            // Banner sheets pack the three frames with padding pixels between them. At any UI
+            // scale other than 100% the default linear sampling blends those padding pixels into
+            // the frame edges as thin coloured lines. Draw the frames with point sampling - which
+            // samples exact texels and never reaches the padding - then restore the UI's default
+            // linear sampling so the rest of the interface is unaffected.
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
+                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
+
+            for (int f = 0; f < frameCount; f++)
             {
-                Vector2 spritePos = new Vector2(this.Left.Pixels, this.Top.Pixels + f * 16);
-                Rectangle spriteFrame = new Rectangle(imagePosX, imagePosY + f * 18, 16, 16);
-                spriteBatch.Draw(texture, spritePos, spriteFrame, color, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
+                // Gap-free integer rows; each interior row is one pixel taller so it overlaps the
+                // next and no seam shows through at a fractional UI scale.
+                int y0 = baseY + (int)Math.Round(f * frameScreenH);
+                int y1 = baseY + (int)Math.Round((f + 1) * frameScreenH);
+                int overlap = f < frameCount - 1 ? 1 : 0;
+                Rectangle dst = new Rectangle(baseX, y0, drawW, y1 - y0 + overlap);
+                Rectangle src = new Rectangle(srcX, srcY + f * strideY, cellW, frameH);
+                spriteBatch.Draw(texture, dst, src, color);
             }
+
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp,
+                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
         }
 
         /// <summary>
