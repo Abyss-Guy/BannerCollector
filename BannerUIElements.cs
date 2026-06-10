@@ -608,11 +608,12 @@ namespace BannerCollector
 
         /// <summary>
         /// Draws a banner from a packed banner tile sheet (vanilla Tiles_91, or a mod's banner
-        /// tile) onto the slot. The frames are drawn with point sampling, so the sheet's
-        /// inter-frame padding never bleeds into coloured lines at a non-100% UI scale, and are
-        /// placed on integer rows with a 1px overlap so no seam shows through; the UI's default
-        /// linear sampling is restored afterwards. Shared by the vanilla atlas path and
-        /// <see cref="DrawTileBanner"/>.
+        /// tile) onto the slot, with point sampling so the sheet's inter-frame padding never
+        /// bleeds into coloured lines. The frames are positioned and sized in whole SCREEN pixels
+        /// - the slot's position is taken through <see cref="Main.UIScaleMatrix"/> and the frames
+        /// are drawn under an identity matrix - so every frame boundary lands on an exact pixel at
+        /// any UI scale and no seam can slip through; the UI's default scaled, linear sampling is
+        /// restored afterwards. Shared by the vanilla atlas path and <see cref="DrawTileBanner"/>.
         /// </summary>
         /// <param name="srcX">X of the style's first frame in the sheet.</param>
         /// <param name="srcY">Y of the style's first frame in the sheet.</param>
@@ -622,25 +623,31 @@ namespace BannerCollector
         /// <param name="frameCount">Number of stacked frames (3 for a banner).</param>
         private void DrawBannerFrames(SpriteBatch spriteBatch, Texture2D texture, int srcX, int srcY, int strideY, int cellW, int frameH, int frameCount, Color color)
         {
-            // Fit the whole banner into the slot (downscaling high-res sheets, never cropping).
-            float scale = Math.Min(Width.Pixels / cellW, Height.Pixels / (frameCount * frameH));
+            // Fit the whole banner into the slot (downscaling high-res sheets, never cropping),
+            // then convert to screen pixels so frame boundaries are pixel-exact at any UI scale.
+            float fit = Math.Min(Width.Pixels / cellW, Height.Pixels / (frameCount * frameH));
+            float scale = fit * Main.UIScale;                       // sheet pixel -> screen pixel
             int drawW = Math.Max(1, (int)Math.Round(cellW * scale));
-            float frameScreenH = frameH * scale;
-            int baseX = (int)Math.Round(this.Left.Pixels + (Width.Pixels - drawW) / 2f);
-            int baseY = (int)Math.Round(this.Top.Pixels);
+
+            // Top-left of the banner (centred in the slot) in exact screen coordinates, taken
+            // through the UI matrix so any offset it carries is respected.
+            Vector2 screen = Vector2.Transform(
+                new Vector2(this.Left.Pixels + (Width.Pixels - cellW * fit) / 2f, this.Top.Pixels),
+                Main.UIScaleMatrix);
+            int left = (int)Math.Round(screen.X);
+            int top = (int)Math.Round(screen.Y);
 
             spriteBatch.End();
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
-                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
+                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Matrix.Identity);
 
             for (int f = 0; f < frameCount; f++)
             {
-                // Gap-free integer rows; each interior row is one pixel taller so it overlaps the
-                // next and no seam shows through at a fractional UI scale.
-                int y0 = baseY + (int)Math.Round(f * frameScreenH);
-                int y1 = baseY + (int)Math.Round((f + 1) * frameScreenH);
-                int overlap = f < frameCount - 1 ? 1 : 0;
-                Rectangle dst = new Rectangle(baseX, y0, drawW, y1 - y0 + overlap);
+                // Whole-pixel, gap-free rows (y1 of one frame == y0 of the next), so a frame edge
+                // never lands mid-pixel and samples the neighbouring padding texel.
+                int y0 = top + (int)Math.Round(f * frameH * scale);
+                int y1 = top + (int)Math.Round((f + 1) * frameH * scale);
+                Rectangle dst = new Rectangle(left, y0, drawW, y1 - y0);
                 Rectangle src = new Rectangle(srcX, srcY + f * strideY, cellW, frameH);
                 spriteBatch.Draw(texture, dst, src, color);
             }
