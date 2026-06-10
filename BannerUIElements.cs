@@ -541,7 +541,7 @@ namespace BannerCollector
             }
             else
             {
-                Color color = new Color(143, 143, 143);
+                Color color = bannerInfo.BannerCount == 0 ? new Color(143, 143, 143) : Color.White;
                 Texture2D texture;
                 //배너 그리기
                 if (bannerInfo.ModName == "CalamityMod")
@@ -556,31 +556,11 @@ namespace BannerCollector
                 {
                     texture = TextureAssets.Tile[91].Value;
                 }
-                
-                int WidthCount = texture.Width / 18; //한줄에 있는 배너 수
-                int imagePosX = (bannerInfo.Index % WidthCount) * 18;
-                int imagePosY = (bannerInfo.Index / WidthCount) * 54;
-                Vector2 spritePos = new Vector2(this.Left.Pixels, this.Top.Pixels);
-                Rectangle spriteFrame = new Rectangle(imagePosX, imagePosY, 16, 16);
-                float textureScale = 1.02f;
-                if (bannerInfo.BannerCount == 0)
-                    spriteBatch.Draw(texture, spritePos, spriteFrame, color, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
-                else
-                    spriteBatch.Draw(texture, spritePos, spriteFrame, Color.White, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
 
-                spritePos = new Vector2(this.Left.Pixels, this.Top.Pixels + 16);
-                spriteFrame = new Rectangle(imagePosX, imagePosY + 18, 16, 16);
-                if (bannerInfo.BannerCount == 0)
-                    spriteBatch.Draw(texture, spritePos, spriteFrame, color, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
-                else
-                    spriteBatch.Draw(texture, spritePos, spriteFrame, Color.White, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
-
-                spritePos = new Vector2(this.Left.Pixels, this.Top.Pixels + 32);
-                spriteFrame = new Rectangle(imagePosX, imagePosY + 36, 16, 16);
-                if (bannerInfo.BannerCount == 0)
-                    spriteBatch.Draw(texture, spritePos, spriteFrame, color, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
-                else
-                    spriteBatch.Draw(texture, spritePos, spriteFrame, Color.White, 0f, Vector2.Zero, textureScale, SpriteEffects.None, 0f);
+                int widthCount = texture.Width / 18; //한줄에 있는 배너 수
+                int srcX = (bannerInfo.Index % widthCount) * 18;
+                int srcY = (bannerInfo.Index / widthCount) * 54;
+                DrawBannerFrames(spriteBatch, texture, srcX, srcY, 18, 16, 16, 3, color);
 
                 if (bannerInfo.BannerCount > 0)
                 {
@@ -604,8 +584,8 @@ namespace BannerCollector
                 //하드모드 핀 그리기
                 if (bannerInfo.IsHardMode)
                 {
-                    spritePos = new Vector2(this.Left.Pixels - 5, this.Top.Pixels - 4);
-                    spriteFrame = new Rectangle(0, 0, 14, 12);
+                    Vector2 spritePos = new Vector2(this.Left.Pixels - 5, this.Top.Pixels - 4);
+                    Rectangle spriteFrame = new Rectangle(0, 0, 14, 12);
                     spriteBatch.Draw(BannerCollectorResources.Pin_HardMode.Value, spritePos, spriteFrame, Color.White);
                 }
             }
@@ -627,13 +607,55 @@ namespace BannerCollector
         }
 
         /// <summary>
+        /// Draws a banner from a packed banner tile sheet (vanilla Tiles_91, or a mod's banner
+        /// tile) onto the slot. The frames are drawn with point sampling, so the sheet's
+        /// inter-frame padding never bleeds into coloured lines at a non-100% UI scale, and are
+        /// placed on integer rows with a 1px overlap so no seam shows through; the UI's default
+        /// linear sampling is restored afterwards. Shared by the vanilla atlas path and
+        /// <see cref="DrawTileBanner"/>.
+        /// </summary>
+        /// <param name="srcX">X of the style's first frame in the sheet.</param>
+        /// <param name="srcY">Y of the style's first frame in the sheet.</param>
+        /// <param name="strideY">Sheet distance between consecutive frames (frame height + padding).</param>
+        /// <param name="cellW">Frame width in pixels.</param>
+        /// <param name="frameH">Frame height in pixels.</param>
+        /// <param name="frameCount">Number of stacked frames (3 for a banner).</param>
+        private void DrawBannerFrames(SpriteBatch spriteBatch, Texture2D texture, int srcX, int srcY, int strideY, int cellW, int frameH, int frameCount, Color color)
+        {
+            // Fit the whole banner into the slot (downscaling high-res sheets, never cropping).
+            float scale = Math.Min(Width.Pixels / cellW, Height.Pixels / (frameCount * frameH));
+            int drawW = Math.Max(1, (int)Math.Round(cellW * scale));
+            float frameScreenH = frameH * scale;
+            int baseX = (int)Math.Round(this.Left.Pixels + (Width.Pixels - drawW) / 2f);
+            int baseY = (int)Math.Round(this.Top.Pixels);
+
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
+                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
+
+            for (int f = 0; f < frameCount; f++)
+            {
+                // Gap-free integer rows; each interior row is one pixel taller so it overlaps the
+                // next and no seam shows through at a fractional UI scale.
+                int y0 = baseY + (int)Math.Round(f * frameScreenH);
+                int y1 = baseY + (int)Math.Round((f + 1) * frameScreenH);
+                int overlap = f < frameCount - 1 ? 1 : 0;
+                Rectangle dst = new Rectangle(baseX, y0, drawW, y1 - y0 + overlap);
+                Rectangle src = new Rectangle(srcX, srcY + f * strideY, cellW, frameH);
+                spriteBatch.Draw(texture, dst, src, color);
+            }
+
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp,
+                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
+        }
+
+        /// <summary>
         /// Draws a mod banner from its real banner tile (<see cref="BannerInfo.TileType"/>),
-        /// selecting the style with <see cref="BannerInfo.Index"/> (the item's placeStyle), for
-        /// the authentic vanilla three-frame banner look. The cell geometry (frame size and
-        /// padding) is read from the tile's own <see cref="TileObjectData"/> so banners authored
-        /// at any resolution render at full quality, and the frames are drawn with point sampling
-        /// so the sheet's inter-frame padding never bleeds into coloured lines at a non-100% UI
-        /// scale. Falls back to the item icon if the tile texture is missing.
+        /// selecting the style with <see cref="BannerInfo.Index"/> (the item's placeStyle). The
+        /// cell geometry (frame size and padding) is read from the tile's own
+        /// <see cref="TileObjectData"/> so banners authored at any resolution render at full
+        /// quality. Falls back to the item icon if the tile texture is missing.
         /// </summary>
         private void DrawTileBanner(SpriteBatch spriteBatch)
         {
@@ -660,39 +682,9 @@ namespace BannerCollector
             int widthCount = Math.Max(1, texture.Width / strideX);
             int srcX = (bannerInfo.Index % widthCount) * strideX;
             int srcY = (bannerInfo.Index / widthCount) * cellH;
-
-            // Fit the whole banner into the slot (downscaling high-res sheets, never cropping).
-            float scale = Math.Min(Width.Pixels / cellW, Height.Pixels / (frameCount * frameH));
-            int drawW = Math.Max(1, (int)Math.Round(cellW * scale));
-            float frameScreenH = frameH * scale;
-            int baseX = (int)Math.Round(this.Left.Pixels + (Width.Pixels - drawW) / 2f);
-            int baseY = (int)Math.Round(this.Top.Pixels);
             Color color = bannerInfo.BannerCount == 0 ? new Color(143, 143, 143) : Color.White;
 
-            // Banner sheets pack the three frames with padding pixels between them. At any UI
-            // scale other than 100% the default linear sampling blends those padding pixels into
-            // the frame edges as thin coloured lines. Draw the frames with point sampling - which
-            // samples exact texels and never reaches the padding - then restore the UI's default
-            // linear sampling so the rest of the interface is unaffected.
-            spriteBatch.End();
-            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
-                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
-
-            for (int f = 0; f < frameCount; f++)
-            {
-                // Gap-free integer rows; each interior row is one pixel taller so it overlaps the
-                // next and no seam shows through at a fractional UI scale.
-                int y0 = baseY + (int)Math.Round(f * frameScreenH);
-                int y1 = baseY + (int)Math.Round((f + 1) * frameScreenH);
-                int overlap = f < frameCount - 1 ? 1 : 0;
-                Rectangle dst = new Rectangle(baseX, y0, drawW, y1 - y0 + overlap);
-                Rectangle src = new Rectangle(srcX, srcY + f * strideY, cellW, frameH);
-                spriteBatch.Draw(texture, dst, src, color);
-            }
-
-            spriteBatch.End();
-            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp,
-                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
+            DrawBannerFrames(spriteBatch, texture, srcX, srcY, strideY, cellW, frameH, frameCount, color);
         }
 
         /// <summary>
