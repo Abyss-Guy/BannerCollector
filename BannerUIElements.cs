@@ -49,13 +49,10 @@ namespace BannerCollector
 
     internal class BannerPanel : BannerUIElements
     {
-        /// <summary>Default panel height that fits a single row of page dots.</summary>
-        public const float DesignHeight = 203f;
-
         public BannerPanel()
         {
-            Width.Pixels = 425f;
-            Height.Pixels = DesignHeight;
+            Width.Pixels = BannerGrid.PanelWidth;
+            Height.Pixels = BannerGrid.DesignHeight;
         }
 
         public override void Update(GameTime gameTime) { }
@@ -67,27 +64,153 @@ namespace BannerCollector
 
             base.Draw(spriteBatch);
 
-            // 패널 그리기
+            // The board (UI_Board.png) is rebuilt to fit any column/row count as a true 9-slice:
+            //   * CENTRE - the pill cells, tiled N columns x M rows. The cell tile is pure pills+beige
+            //     with no frame pixels, so tiling can never repeat a frame fragment between cells.
+            //   * TOP edge + FOOTER (frame line, page-dot band, bottom border) - horizontally uniform,
+            //     so they are stretched across the centre width from one clean column.
+            //   * LEFT and RIGHT edges - full-height strips that carry the inner frame's vertical line.
+            //     That line bulges outward at each corner, so the strip is its OWN vertical 9-slice
+            //     (top bulge + stretched straight middle + bottom bulge + footer): keeping the bulges
+            //     1:1 is what stops them repeating at every row (the side "sticks") and what restores
+            //     the bottom corners. The right edge is the left edge mirrored, so corners are symmetric.
+            // Only the page-dot band stretches vertically (for extra dot rows); everything else keeps
+            // its source pixels.
+            //
+            // Everything is composed in WHOLE SCREEN PIXELS under an identity matrix with point
+            // sampling - not under Main.UIScaleMatrix - so every edge lands on an exact screen pixel
+            // and neighbouring pieces share an identical edge at ANY UI scale. This is the same
+            // seam-free technique used for banners in BannerSlot.DrawBannerFrames.
             Texture2D tex = BannerCollectorResources.UI_Panel.Value;
             Rectangle dst = GetInnerDimensions().ToRectangle();
+            int columns = BannerGrid.Columns;
+            int rows = BannerGrid.Rows;
+            int totalH = dst.Height;                                 // panel height incl. extra dot rows
+            int extra = totalH - (int)BannerGrid.DesignHeight;       // height added for extra dot rows (>= 0)
+            int yB = BannerGrid.TopEdgeH + rows * BannerGrid.CellH;  // footer top (UI offset from panel top)
+            int fa = BannerGrid.FooterArtY;
+            float ui = Main.UIScale;
 
-            // The board art is a single sprite with the banner cells baked into its top
-            // region. To let the panel grow for extra page-dot rows without distorting the
-            // cells, draw it as a vertical 3-slice: the cell region (top) and the bottom
-            // border are drawn unscaled, and only the flat band behind the dot rows is
-            // stretched. When the panel is at its design height this reproduces the original
-            // single Draw exactly (the three slices are contiguous and unscaled).
-            const int bandTop = 176;                  // start of the page-dot band in the art
-            const int bandBottom = 192;               // end of a single dot row's band
-            int bottomH = tex.Height - bandBottom;     // bottom border, drawn unscaled
-            int extra = dst.Height - tex.Height;       // added height for extra dot rows (>= 0)
+            // Panel top-left in exact screen pixels (the UI matrix is applied by hand here so the
+            // identity-matrix batch below positions the panel correctly).
+            Vector2 origin = Vector2.Transform(new Vector2(dst.X, dst.Y), Main.UIScaleMatrix);
+            int ox = (int)Math.Round(origin.X);
+            int oy = (int)Math.Round(origin.Y);
 
-            spriteBatch.Draw(tex, new Rectangle(dst.X, dst.Y, dst.Width, bandTop),
-                new Rectangle(0, 0, tex.Width, bandTop), Color.White);
-            spriteBatch.Draw(tex, new Rectangle(dst.X, dst.Y + bandTop, dst.Width, (bandBottom - bandTop) + extra),
-                new Rectangle(0, bandTop, tex.Width, bandBottom - bandTop), Color.White);
-            spriteBatch.Draw(tex, new Rectangle(dst.X, dst.Y + bandTop + (bandBottom - bandTop) + extra, dst.Width, bottomH),
-                new Rectangle(0, bandBottom, tex.Width, bottomH), Color.White);
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
+                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Matrix.Identity);
+
+            // --- Centre: the pill grid, tiled in both directions. ---
+            for (int r = 0; r < rows; r++)
+            {
+                int py0 = PxY(oy, ui, BannerGrid.TopEdgeH + r * BannerGrid.CellH);
+                int py1 = PxY(oy, ui, BannerGrid.TopEdgeH + (r + 1) * BannerGrid.CellH);
+                for (int c = 0; c < columns; c++)
+                {
+                    int px0 = PxX(ox, ui, BannerGrid.EdgeW + c * BannerGrid.CellW);
+                    int px1 = PxX(ox, ui, BannerGrid.EdgeW + (c + 1) * BannerGrid.CellW);
+                    spriteBatch.Draw(tex, new Rectangle(px0, py0, px1 - px0, py1 - py0),
+                        new Rectangle(BannerGrid.CellArtX, BannerGrid.CellArtY, BannerGrid.CellW, BannerGrid.CellH), Color.White);
+                }
+            }
+
+            // --- Top edge and footer bands: horizontally uniform, stretched across the centre width. ---
+            int bandBottom = yB + BannerGrid.FooterLineH + BannerGrid.FooterBandH + extra; // bottom border start
+            DrawCenterBand(spriteBatch, tex, ox, oy, ui, 0, BannerGrid.TopEdgeH, 0, BannerGrid.TopEdgeH);
+            DrawCenterBand(spriteBatch, tex, ox, oy, ui, yB, yB + BannerGrid.FooterLineH, fa, BannerGrid.FooterLineH);
+            DrawCenterBand(spriteBatch, tex, ox, oy, ui, yB + BannerGrid.FooterLineH, bandBottom, fa + BannerGrid.FooterLineH, BannerGrid.FooterBandH);
+            DrawCenterBand(spriteBatch, tex, ox, oy, ui, bandBottom, totalH, fa + BannerGrid.FooterLineH + BannerGrid.FooterBandH, BannerGrid.FooterBottomH);
+
+            // --- Left and right edges (full height). The right edge is the left, mirrored. ---
+            DrawEdge(spriteBatch, tex, ox, oy, ui, 0, false, yB, extra, totalH);
+            DrawEdge(spriteBatch, tex, ox, oy, ui, (int)BannerGrid.PanelWidth - BannerGrid.EdgeW, true, yB, extra, totalH);
+
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp,
+                DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
+        }
+
+        /// <summary>Maps a UI-space X offset (from the panel's left edge) to a whole screen pixel.</summary>
+        private static int PxX(int ox, float ui, int offUi) => ox + (int)Math.Round(offUi * ui);
+
+        /// <summary>Maps a UI-space Y offset (from the panel's top edge) to a whole screen pixel.</summary>
+        private static int PxY(int oy, float ui, int offUi) => oy + (int)Math.Round(offUi * ui);
+
+        /// <summary>
+        /// Draws one horizontally-uniform band of the centre (the top frame line, or a footer
+        /// sub-band) by stretching a single clean column (<see cref="BannerGrid.FrameMidArtX"/>)
+        /// across the gap between the two edges, from source rows [<paramref name="srcY"/>,
+        /// srcY+<paramref name="srcH"/>) into screen rows [<paramref name="yAui"/>,
+        /// <paramref name="yBui"/>). Boundaries are rounded to whole screen pixels, so the band abuts
+        /// the edges exactly at any UI scale.
+        /// </summary>
+        private static void DrawCenterBand(SpriteBatch sb, Texture2D tex, int ox, int oy, float ui,
+            int yAui, int yBui, int srcY, int srcH)
+        {
+            int xl = PxX(ox, ui, BannerGrid.EdgeW);
+            int xr = PxX(ox, ui, (int)BannerGrid.PanelWidth - BannerGrid.EdgeW);
+            int y0 = PxY(oy, ui, yAui);
+            int y1 = PxY(oy, ui, yBui);
+            if (xr > xl && y1 > y0)
+                sb.Draw(tex, new Rectangle(xl, y0, xr - xl, y1 - y0), new Rectangle(BannerGrid.FrameMidArtX, srcY, 1, srcH), Color.White);
+        }
+
+        /// <summary>
+        /// Draws one left/right edge strip (a vertical 9-slice of the inner frame's vertical line)
+        /// from the LEFT edge art at sheet x 0..38. The two corner bulges are kept 1:1 while the
+        /// straight middle and the page-dot band stretch, so the bulges never repeat and stay at the
+        /// real corners. <paramref name="flip"/> mirrors the art horizontally for the right edge, so
+        /// both sides are exact symmetric copies. The footer sub-bands use the same Y layout as
+        /// <see cref="DrawCenterBand"/>, so the frame line and border are continuous across the seam.
+        /// </summary>
+        /// <param name="destXOff">UI-space X of the strip's left edge (0 for left, PanelWidth-EdgeW for right).</param>
+        /// <param name="flip">Mirror the art horizontally (for the right edge).</param>
+        /// <param name="yB">Footer top as a UI-space offset from the panel's top.</param>
+        /// <param name="extra">Extra height (page-dot band stretch).</param>
+        /// <param name="totalH">Full panel height in UI pixels.</param>
+        private static void DrawEdge(SpriteBatch sb, Texture2D tex, int ox, int oy, float ui,
+            int destXOff, bool flip, int yB, int extra, int totalH)
+        {
+            SpriteEffects fx = flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+            int x0 = PxX(ox, ui, destXOff);
+            int w = PxX(ox, ui, destXOff + BannerGrid.EdgeW) - x0;
+            int fa = BannerGrid.FooterArtY;
+            int bandTop = yB + BannerGrid.FooterLineH;
+            int capBottom = bandTop + BannerGrid.EdgeBandCapH;
+            int bandBottom = bandTop + BannerGrid.FooterBandH + extra;
+
+            // Top corner (border + frame line + top bulge), 1:1.
+            DrawEdgePiece(sb, tex, x0, w, oy, ui, 0, BannerGrid.EdgeTopCornerH, 0, BannerGrid.EdgeTopCornerH, fx);
+            // Straight vertical line, stretched between the two bulges.
+            DrawEdgePiece(sb, tex, x0, w, oy, ui, BannerGrid.EdgeTopCornerH, yB - BannerGrid.EdgeBulgeH, BannerGrid.EdgeMidArtY, 1, fx);
+            // Bottom bulge, 1:1, just above the footer.
+            DrawEdgePiece(sb, tex, x0, w, oy, ui, yB - BannerGrid.EdgeBulgeH, yB, BannerGrid.EdgeBulgeArtY, BannerGrid.EdgeBulgeH, fx);
+            // Footer frame line.
+            DrawEdgePiece(sb, tex, x0, w, oy, ui, yB, bandTop, fa, BannerGrid.FooterLineH, fx);
+            // Page-dot band: the corner block at its top stays 1:1 (so it never thickens when the band
+            // grows for extra dot rows); only the uniform beige below it is stretched.
+            DrawEdgePiece(sb, tex, x0, w, oy, ui, bandTop, capBottom, fa + BannerGrid.FooterLineH, BannerGrid.EdgeBandCapH, fx);
+            DrawEdgePiece(sb, tex, x0, w, oy, ui, capBottom, bandBottom, fa + BannerGrid.FooterLineH + BannerGrid.EdgeBandCapH, 1, fx);
+            // Bottom border.
+            DrawEdgePiece(sb, tex, x0, w, oy, ui, bandBottom, totalH, fa + BannerGrid.FooterLineH + BannerGrid.FooterBandH, BannerGrid.FooterBottomH, fx);
+        }
+
+        /// <summary>
+        /// Draws one vertical piece of an edge strip: source (sheet x 0..38,
+        /// [<paramref name="srcY"/>, srcY+<paramref name="srcH"/>)) into the strip's screen column
+        /// [<paramref name="x0"/>, x0+<paramref name="w"/>) and screen rows mapped from
+        /// [<paramref name="yAui"/>, <paramref name="yBui"/>). Heights are scaled (srcH -> the row
+        /// span); the width is the fixed edge width. <paramref name="fx"/> mirrors it for the right edge.
+        /// </summary>
+        private static void DrawEdgePiece(SpriteBatch sb, Texture2D tex, int x0, int w, int oy, float ui,
+            int yAui, int yBui, int srcY, int srcH, SpriteEffects fx)
+        {
+            int y0 = PxY(oy, ui, yAui);
+            int y1 = PxY(oy, ui, yBui);
+            if (y1 > y0)
+                sb.Draw(tex, new Rectangle(x0, y0, w, y1 - y0), new Rectangle(0, srcY, BannerGrid.EdgeW, srcH),
+                    Color.White, 0f, Vector2.Zero, fx, 0f);
         }
     }
 

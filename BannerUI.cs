@@ -116,7 +116,7 @@ namespace BannerCollector
                     {
                         RemoveChild(buttonPage[i]);
                     }
-                    for (int i = 0; i < 20; i++)
+                    for (int i = 0; i < bannerSlot.Length; i++)
                     {
                         RemoveChild(bannerSlot[i]);
                     }
@@ -126,23 +126,21 @@ namespace BannerCollector
         }
 
         /// <summary>
-        /// Positions the page-navigation dots in centered rows below the banner grid,
-        /// wrapping onto a new row every 21 dots, and grows the panel's height so the rows
-        /// stay inside the window. Capping a row at 21 dots keeps it within the width of the
-        /// banner grid above it (10 banner slots span almost exactly 21 dots), so the dots
-        /// stay under the banners instead of stretching to the full panel width. This
-        /// replaces the old single-row layout that ran off the panel's sides when many
-        /// enabled mods added a large number of banner pages.
+        /// Positions the page-navigation dots in centered rows in the band below the banner grid,
+        /// wrapping onto a new row once a row would exceed the grid's width, and grows the panel's
+        /// height downward so every dot row stays inside the window. The per-row cap scales with the
+        /// column count so the dots stay under the banners instead of stretching across the panel.
         /// </summary>
         private void LayoutPageButtons(float pX, float pY, float pW)
         {
             const int dotSize = 16;
-            const int maxPerRow = 21; // keep each row within the banner grid's width
-            int perRow = Math.Min(maxPerRow, Math.Max(1, (int)(pW / dotSize))); // dots per row
+            // Keep each dot row within the banner grid's width (Columns cells wide).
+            int maxPerRow = Math.Max(1, BannerGrid.Columns * BannerGrid.CellPitchX / dotSize);
+            int perRow = Math.Min(maxPerRow, Math.Max(1, (int)(pW / dotSize)));
             int rows = (int)Math.Ceiling((double)totalPages / perRow);
 
             // Grow the panel downward (its top-left is fixed) so every dot row fits inside it.
-            bannerPanel.Height.Pixels = BannerPanel.DesignHeight + Math.Max(0, rows - 1) * dotSize;
+            bannerPanel.Height.Pixels = BannerGrid.DesignHeight + Math.Max(0, rows - 1) * dotSize;
             bannerPanel.Recalculate();
 
             for (int i = 0; i < totalPages; i++)
@@ -152,7 +150,7 @@ namespace BannerCollector
                 int dotsInRow = Math.Min(perRow, totalPages - row * perRow);
                 float rowWidth = dotsInRow * dotSize;
                 buttonPage[i].Left.Set((pW - rowWidth) / 2f + col * dotSize + pX, 0f);
-                buttonPage[i].Top.Set(pY + 176 + row * dotSize, 0f);
+                buttonPage[i].Top.Set(pY + BannerGrid.PageDotBandTop + row * dotSize, 0f);
             }
         }
 
@@ -181,16 +179,17 @@ namespace BannerCollector
                 Append(buttonRight);
             }
 
-            for (int i = 0; i < 20; i++)
+            int pageSize = bannerSlot.Length; // one full grid of slots
+            for (int i = 0; i < pageSize; i++)
             {
-                if (i + 20 * (page - 1) >= bannerList.Count)
+                if (i + pageSize * (page - 1) >= bannerList.Count)
                 {
                     RemoveChild(bannerSlot[i]);
                 }
                 else
                 {
                     Append(bannerSlot[i]);
-                    bannerSlot[i].SetBannerInfo(bannerList[i + 20 * (page - 1)]);
+                    bannerSlot[i].SetBannerInfo(bannerList[i + pageSize * (page - 1)]);
                 }
             }
         }
@@ -198,15 +197,12 @@ namespace BannerCollector
         private void AppendBannerSlot()
         {
             // Positions are set by PositionElements; this only adds the slots to the state.
-            for (int i = 0; i < 10; i++)
-            {
+            for (int i = 0; i < bannerSlot.Length; i++)
                 Append(bannerSlot[i]);
-                Append(bannerSlot[i + 10]);
-            }
         }
 
         /// <summary>
-        /// Positions every child of the window - the header buttons, the 2x10 banner-slot grid and
+        /// Positions every child of the window - the header buttons, the banner-slot grid and
         /// the page dots - relative to the banner panel's current top-left. Called on open and on
         /// every drag frame so the whole window moves as one piece. Pure positioning: it never
         /// appends or removes elements, so it is safe to call regardless of which page is shown.
@@ -217,10 +213,18 @@ namespace BannerCollector
             float pY = bannerPanel.GetDimensions().Y;
             float pW = bannerPanel.GetDimensions().Width;
 
+            // Left-side header buttons keep their fixed positions. The close button tracks the right
+            // edge (pX + pW), so it stays at the far right as the window widens. The page arrows are
+            // centred exactly on the banner grid (the pill rows span TopEdgeH .. TopEdgeH+Rows*CellH),
+            // so they sit dead-centre instead of riding high near the top as the original art did.
+            float arrowTop = pY + BannerGrid.TopEdgeH + BannerGrid.Rows * BannerGrid.CellH / 2f - buttonLeft.Height.Pixels / 2f;
             buttonLeft.Left.Set(pX + 9f, 0f);
-            buttonLeft.Top.Set(pY + 82f, 0f);
+            buttonLeft.Top.Set(arrowTop, 0f);
+            // The right arrow's wide base (its frame-facing side) carries a dark outline, so its gap to
+            // the frame reads larger than the left arrow's light-edged base at the same distance. Nudged
+            // 2px toward the frame so both bases sit equally close to their frame.
             buttonRight.Left.Set(pX + pW - 27f, 0f);
-            buttonRight.Top.Set(pY + 82f, 0f);
+            buttonRight.Top.Set(arrowTop, 0f);
             buttonSort.Left.Set(pX + 43, 0f);
             buttonSort.Top.Set(pY + 14, 0f);
             buttonFilter.Left.Set(pX + 73, 0f);
@@ -232,12 +236,13 @@ namespace BannerCollector
             buttonClose.Left.Set(pX + pW - 63, 0f);
             buttonClose.Top.Set(pY + 14, 0f);
 
-            for (int i = 0; i < 10; i++)
+            // Banner-slot grid: Columns x Rows, row-major.
+            for (int i = 0; i < bannerSlot.Length; i++)
             {
-                bannerSlot[i].Left.Set(pX + 47 + (i * 35), 0f);
-                bannerSlot[i].Top.Set(pY + 51, 0f);
-                bannerSlot[i + 10].Left.Set(pX + 47 + (i * 35), 0f);
-                bannerSlot[i + 10].Top.Set(pY + 115, 0f);
+                int col = i % BannerGrid.Columns;
+                int row = i / BannerGrid.Columns;
+                bannerSlot[i].Left.Set(pX + BannerGrid.FirstSlotX + col * BannerGrid.CellPitchX, 0f);
+                bannerSlot[i].Top.Set(pY + BannerGrid.FirstSlotY + row * BannerGrid.CellPitchY, 0f);
             }
 
             LayoutPageButtons(pX, pY, pW);
@@ -383,7 +388,7 @@ namespace BannerCollector
                     bannerList.RemoveAll(banner => banner.ModName != BannerLoad.ModList[filterMod - 2]);
             }
 
-            totalPages = (int)Math.Ceiling((double)bannerList.Count / 20);
+            totalPages = (int)Math.Ceiling((double)bannerList.Count / bannerSlot.Length);
             float pX = bannerPanel.GetDimensions().X;
             float pY = bannerPanel.GetDimensions().Y;
             float pW = bannerPanel.GetDimensions().Width;
@@ -399,7 +404,8 @@ namespace BannerCollector
         }
         public void InitializePage()
         {
-            totalPages = (int)Math.Ceiling((double)BannerLoad.BannerDict.Count / 20);
+            RebuildGridIfNeeded(); // make the slots/panel match the configured grid before paging
+            totalPages = (int)Math.Ceiling((double)BannerLoad.BannerDict.Count / bannerSlot.Length);
             buttonPage = new ButtonPage[totalPages]; //Y촤표 176 간격 16픽셀씩
             for (int i = 0; i < totalPages; i++)
             {
@@ -408,8 +414,10 @@ namespace BannerCollector
                 buttonPage[index].thisPage = index + 1;
                 buttonPage[index].OnLeftClick += (evt, listeningElement) => ButtonPageClicked(evt, listeningElement, index);
             }
+            // Clamp the current page in case a grid change reduced the page count.
+            if (page < 1 || page > totalPages)
+                page = 1;
             buttonPage[page - 1].SetPage();
-
         }
         public override void OnInitialize()
         {
@@ -448,17 +456,63 @@ namespace BannerCollector
             buttonClose.OnLeftClick += ButtonCloseClicked;
             buttonClose.OnMouseOver += ButtonMouseOver;
 
-            
-            bannerSlot = new BannerSlot[20];
-            for (int i = 0; i < 20; i++)
+            CreateBannerSlots();
+        }
+
+        /// <summary>
+        /// (Re)creates the banner-slot array sized to the current grid (<see cref="BannerGrid.PageSize"/>)
+        /// and wires each slot's mouse handlers.
+        /// </summary>
+        private void CreateBannerSlots()
+        {
+            bannerSlot = new BannerSlot[BannerGrid.PageSize];
+            for (int i = 0; i < bannerSlot.Length; i++)
             {
                 int index = i;
                 bannerSlot[index] = new BannerSlot();
-                bannerSlot[index].OnLeftMouseDown += (evt, listeningElement) => BannerSlotLeftMouseDown(evt, listeningElement, index); //슬롯 전체 아이템 마우스에 올리기
-                bannerSlot[index].OnRightMouseDown += (evt, listeningElement) => BannerSlotRightMouseDown(evt, listeningElement, index); //슬롯 아이템 1개씩 올리기
+                bannerSlot[index].OnLeftMouseDown += (evt, listeningElement) => BannerSlotLeftMouseDown(evt, listeningElement, index);
+                bannerSlot[index].OnRightMouseDown += (evt, listeningElement) => BannerSlotRightMouseDown(evt, listeningElement, index);
                 bannerSlot[index].OnRightMouseUp += BannerSlotRightMouseUp;
                 bannerSlot[index].OnMouseOut += BannerSlotMouseOut;
             }
+        }
+
+        /// <summary>
+        /// Rebuilds the slot array and panel size to match the configured grid if they are out of
+        /// sync (e.g. the column/row config changed since the slots were last created). Pure setup -
+        /// callers re-page afterwards. Run before laying out pages.
+        /// </summary>
+        private void RebuildGridIfNeeded()
+        {
+            if (bannerSlot != null && bannerSlot.Length == BannerGrid.PageSize)
+                return;
+
+            CreateBannerSlots();
+            bannerPanel.Width.Pixels = BannerGrid.PanelWidth;
+            bannerPanel.Height.Pixels = BannerGrid.DesignHeight;
+            bannerPanel.Recalculate();
+        }
+
+        /// <summary>
+        /// Applies a changed grid size from the config: rebuilds the slots, panel and pages so the
+        /// next opening shows the new grid. Called from the config's OnChanged. No-op when the grid
+        /// is unchanged, the UI is not ready, or while at the main menu (the world load rebuilds it).
+        /// </summary>
+        public void ApplyGridConfig()
+        {
+            if (Main.gameMenu || bannerSlot == null || bannerSlot.Length == BannerGrid.PageSize)
+                return;
+
+            bool wasVisible = bannerCollectorVisible;
+            if (wasVisible)
+                BannerCollectorVisible = false; // detach the old slots/dots before rebuilding
+
+            bannerList = BannerLoad.BannerDict.Values.ToList();
+            InitializePage(); // rebuilds the grid (RebuildGridIfNeeded) and the page buttons
+            SetFirstPage();
+
+            if (wasVisible)
+                BannerCollectorVisible = true;
         }
         public void ButtonModSetDefault()
         {

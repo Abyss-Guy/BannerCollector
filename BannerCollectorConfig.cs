@@ -17,6 +17,18 @@ namespace BannerCollector
         [DefaultValue(true)]
         public bool EnableBannerBuff { get; set; }
 
+        // Banner grid size. Columns are horizontal, rows are vertical; the window grows to fit them
+        // (see BannerGrid). Defaults reproduce the original 10x2 layout.
+        [Range(BannerGrid.MinColumns, BannerGrid.MaxColumns)]
+        [Increment(1)]
+        [DefaultValue(BannerGrid.DefaultColumns)]
+        public int BannerColumns { get; set; }
+
+        [Range(BannerGrid.MinRows, BannerGrid.MaxRows)]
+        [Increment(1)]
+        [DefaultValue(BannerGrid.DefaultRows)]
+        public int BannerRows { get; set; }
+
         // Locks dragging of the mod window. Listed before the X/Y fields for convenience. The window
         // keeps its saved position while locked - only "Reset to Defaults" returns it to the start.
         [DefaultValue(true)]
@@ -68,6 +80,14 @@ namespace BannerCollector
         {
             try { SaveMethod?.Invoke(null, new object[] { this }); }
             catch { /* best-effort: a failed save must not interrupt gameplay */ }
+        }
+
+        // Fired by tModLoader after the config changes (including "Reset to Defaults"). The UI
+        // rebuilds its banner grid only if the column/row counts actually changed; everything else
+        // is ignored, so this does not touch the window position or any other state.
+        public override void OnChanged()
+        {
+            BannerUISystem.Instance?.bannerUI?.ApplyGridConfig();
         }
     }
 }

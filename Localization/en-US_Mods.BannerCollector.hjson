@@ -7,9 +7,19 @@ Configs: {
 			Tooltip: ""
 		}
 
+		BannerColumns: {
+			Label: Banners Per Row
+			Tooltip: How many banners fit across one row.
+		}
+
+		BannerRows: {
+			Label: Rows Of Banners
+			Tooltip: How many rows of banners are shown.
+		}
+
 		LockWindowPosition: {
 			Label: Lock Mod Window Position
-			Tooltip: When on, the mod window can't be dragged and stays put. Use Reset to Defaults to send it back to its original spot.
+			Tooltip: When on, the mod window can't be manually dragged.
 		}
 
 		WindowX: {
