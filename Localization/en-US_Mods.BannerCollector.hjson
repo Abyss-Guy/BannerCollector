@@ -8,3 +8,7 @@ Configs: {
 		}
 	}
 }
+
+Keybinds: {
+	ToggleBannerBuffs.DisplayName: Toggle Banner Buffs
+}

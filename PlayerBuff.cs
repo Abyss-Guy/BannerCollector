@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Terraria;
+using Terraria.GameInput;
 using Terraria.ModLoader;
 
 namespace BannerCollector
@@ -27,6 +28,26 @@ namespace BannerCollector
                     BannerBuffTile.UpdateTilePosition(player); // 타일 업데이트
                 }
             }
+        }
+
+        /// <summary>
+        /// Toggles the banner buff when the mod's keybind is pressed. The buff state lives in the
+        /// client-side config and is read live by <see cref="BannerBuffTile"/>, so flipping it here
+        /// takes effect immediately. <see cref="ProcessTriggers"/> only runs for the local player's
+        /// input, which matches the client-side scope of the setting.
+        /// </summary>
+        public override void ProcessTriggers(TriggersSet triggersSet)
+        {
+            if (BannerCollector.ToggleBannerBuffKeybind == null || !BannerCollector.ToggleBannerBuffKeybind.JustPressed)
+                return;
+
+            BannerCollectorConfig config = BannerCollectorConfig.Instance;
+            if (config == null)
+                return;
+
+            config.EnableBannerBuff = !config.EnableBannerBuff;
+            config.Save(); // persist so the keybind toggle survives a restart
+            Main.NewText($"Banner buffs: {(config.EnableBannerBuff ? "ON" : "OFF")}");
         }
     }
 }
