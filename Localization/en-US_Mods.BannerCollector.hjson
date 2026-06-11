@@ -6,6 +6,21 @@ Configs: {
 			Label: Enable Banner Buffs in Collection
 			Tooltip: ""
 		}
+
+		LockWindowPosition: {
+			Label: Lock Mod Window Position
+			Tooltip: When on, the mod window can't be dragged and stays put. Use Reset to Defaults to send it back to its original spot.
+		}
+
+		WindowX: {
+			Label: Mod Window X Position
+			Tooltip: Horizontal position of the mod window. Updates automatically when you drag it.
+		}
+
+		WindowY: {
+			Label: Mod Window Y Position
+			Tooltip: Vertical position of the mod window. Updates automatically when you drag it.
+		}
 	}
 }
 

@@ -147,6 +147,11 @@ namespace BannerCollector
                 bannerUI.SetFirstPage();
                 bannerUI.ButtonModSetDefault(); //모드 켜져있으면 나오는 모드 필터 버튼 초기화
 
+                // Restore the remembered open/closed state of the collection toggle so it persists
+                // across sessions; the window then shows when the inventory is next opened.
+                if (BannerButtonBuilderToggle.Instance != null)
+                    BannerButtonBuilderToggle.Instance.CurrentState =
+                        (BannerCollectorConfig.Instance?.CollectionOpen ?? false) ? 1 : 0;
             }
         }
 
@@ -165,6 +170,14 @@ namespace BannerCollector
                 }
             }
             PlayerAssist.SavePlayerBannerData();
+
+            // Persist the collection toggle's open/closed state alongside the banner data.
+            BannerCollectorConfig config = BannerCollectorConfig.Instance;
+            if (config != null && BannerButtonBuilderToggle.Instance != null)
+            {
+                config.CollectionOpen = BannerButtonBuilderToggle.Instance.CurrentState == 1;
+                config.Save();
+            }
         }
 
         public override void PreSaveAndQuit()

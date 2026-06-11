@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
+using Newtonsoft.Json;
 using Terraria.ModLoader.Config;
 
 namespace BannerCollector
@@ -15,6 +16,31 @@ namespace BannerCollector
         [Label("Enable banner buffs in collection")]
         [DefaultValue(true)]
         public bool EnableBannerBuff { get; set; }
+
+        // Locks dragging of the mod window. Listed before the X/Y fields for convenience. The window
+        // keeps its saved position while locked - only "Reset to Defaults" returns it to the start.
+        [DefaultValue(true)]
+        public bool LockWindowPosition { get; set; }
+
+        // Saved top-left position of the mod window, in UI pixels. Updated when the window is dragged
+        // and persisted via Save(); the defaults are the window's original spot. The Range spans any
+        // screen size so the value shows correctly in the menu instead of being clamped by the
+        // default 0-100 slider.
+        [Range(0, 5000)]
+        [Increment(1)]
+        [DefaultValue(20)]
+        public int WindowX { get; set; }
+
+        [Range(0, 5000)]
+        [Increment(1)]
+        [DefaultValue(258)]
+        public int WindowY { get; set; }
+
+        // Remembered open/closed state of the collection toggle. Persisted but hidden from the config
+        // menu: [JsonProperty] makes it serialize, and being non-public keeps it out of the menu
+        // (which lists only public members). Managed automatically on world load/exit.
+        [JsonProperty]
+        internal bool CollectionOpen;
 
         // 정적 인스턴스
         public static BannerCollectorConfig Instance { get; private set; }

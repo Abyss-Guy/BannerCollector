@@ -51,6 +51,13 @@ namespace BannerCollector
         private int filter = 0; //0: 전체, 1: 보유함. 2:미보유
         private int filterMode = 0; //0: 전체, 1: 하드모드 이전. 2:하드모드
         private int filterMod = 0; //0: all, 1: vanilla (Terraria), 2..: ModList[filterMod-2]
+
+        // Window dragging state. The window's children are siblings positioned from the panel's
+        // top-left, so a drag moves the panel and re-runs PositionElements to reflow everything.
+        private const float DragThresholdSq = 16f; // a press must move >4px before it counts as a drag
+        private bool windowDragging;         // a press started on the panel and the button is still held
+        private bool windowMoved;            // the window actually moved this press (vs a plain click)
+        private Vector2 windowDragOffset;    // cursor-to-panel-top-left offset captured at drag start
         public void SetFirstPage()
         {
             page = 1;
@@ -68,8 +75,6 @@ namespace BannerCollector
             {
                 if (value)
                 {
-                    float pX, pY, pW, pH; //UI의 가로 세로 너비 높이
-
                     Append(bannerPanel);
                     Append(buttonLeft);
                     Append(buttonRight);
@@ -82,33 +87,14 @@ namespace BannerCollector
                     }
                     Append(buttonClose);
 
-                    pX = bannerPanel.GetDimensions().X;
-                    pY = bannerPanel.GetDimensions().Y;
-                    pW = bannerPanel.GetDimensions().Width;
-                    pH = bannerPanel.GetDimensions().Height;
-
-                    buttonLeft.Left.Set(pX + 9f, 0f);
-                    buttonLeft.Top.Set(pY + 82f, 0f);
-                    buttonRight.Left.Set(pX + pW - 27f, 0f);
-                    buttonRight.Top.Set(pY + 82f, 0f);
-                    buttonSort.Left.Set(pX + 43, 0f);
-                    buttonSort.Top.Set(pY + 14, 0f);
-                    buttonFilter.Left.Set(pX + 73, 0f);
-                    buttonFilter.Top.Set(pY + 14, 0f);
-                    buttonFilterMode.Left.Set(pX + 103, 0f);
-                    buttonFilterMode.Top.Set(pY + 14, 0f);
-                    buttonFilterMod.Left.Set(pX + 133, 0f);
-                    buttonFilterMod.Top.Set(pY + 14, 0f);
-                    buttonClose.Left.Set(pX + pW - 63, 0f);
-                    buttonClose.Top.Set(pY + 14, 0f);
-
-                    LayoutPageButtons(pX, pY, pW);
+                    RestoreWindowPosition(); // first open this session: apply the saved position
+                    PositionElements();      // lay out header buttons, the slot grid and page dots
                     for (int i = 0; i < totalPages; i++)
                     {
                         Append(buttonPage[i]);
                     }
 
-                    AppendBannerSlot(pX, pY);
+                    AppendBannerSlot();
                     PageLoad();
                 }
                 else
@@ -209,19 +195,143 @@ namespace BannerCollector
             }
         }
 
-        private void AppendBannerSlot(float pX, float pY)
+        private void AppendBannerSlot()
         {
+            // Positions are set by PositionElements; this only adds the slots to the state.
+            for (int i = 0; i < 10; i++)
+            {
+                Append(bannerSlot[i]);
+                Append(bannerSlot[i + 10]);
+            }
+        }
+
+        /// <summary>
+        /// Positions every child of the window - the header buttons, the 2x10 banner-slot grid and
+        /// the page dots - relative to the banner panel's current top-left. Called on open and on
+        /// every drag frame so the whole window moves as one piece. Pure positioning: it never
+        /// appends or removes elements, so it is safe to call regardless of which page is shown.
+        /// </summary>
+        private void PositionElements()
+        {
+            float pX = bannerPanel.GetDimensions().X;
+            float pY = bannerPanel.GetDimensions().Y;
+            float pW = bannerPanel.GetDimensions().Width;
+
+            buttonLeft.Left.Set(pX + 9f, 0f);
+            buttonLeft.Top.Set(pY + 82f, 0f);
+            buttonRight.Left.Set(pX + pW - 27f, 0f);
+            buttonRight.Top.Set(pY + 82f, 0f);
+            buttonSort.Left.Set(pX + 43, 0f);
+            buttonSort.Top.Set(pY + 14, 0f);
+            buttonFilter.Left.Set(pX + 73, 0f);
+            buttonFilter.Top.Set(pY + 14, 0f);
+            buttonFilterMode.Left.Set(pX + 103, 0f);
+            buttonFilterMode.Top.Set(pY + 14, 0f);
+            buttonFilterMod.Left.Set(pX + 133, 0f);
+            buttonFilterMod.Top.Set(pY + 14, 0f);
+            buttonClose.Left.Set(pX + pW - 63, 0f);
+            buttonClose.Top.Set(pY + 14, 0f);
+
             for (int i = 0; i < 10; i++)
             {
                 bannerSlot[i].Left.Set(pX + 47 + (i * 35), 0f);
                 bannerSlot[i].Top.Set(pY + 51, 0f);
-
                 bannerSlot[i + 10].Left.Set(pX + 47 + (i * 35), 0f);
                 bannerSlot[i + 10].Top.Set(pY + 115, 0f);
-
-                Append(bannerSlot[i]);
-                Append(bannerSlot[i + 10]);
             }
+
+            LayoutPageButtons(pX, pY, pW);
+        }
+
+        /// <summary>Starts a window drag from a press on the panel background (not on a child).</summary>
+        private void StartWindowDrag(UIMouseEvent evt, UIElement listeningElement)
+        {
+            // Dragging is disabled while the window is locked (the default, and after a config reset).
+            if (BannerCollectorConfig.Instance?.LockWindowPosition ?? true)
+                return;
+
+            windowDragging = true;
+            windowMoved = false;
+            windowDragOffset = evt.MousePosition - new Vector2(bannerPanel.Left.Pixels, bannerPanel.Top.Pixels);
+        }
+
+        /// <summary>
+        /// Drives an in-progress window drag: while the button is held and the cursor has moved past
+        /// the threshold, the panel follows the cursor (clamped to the screen) and the children are
+        /// reflowed. On release, the new position is saved. Detecting release here (rather than via a
+        /// mouse-up event) makes the drag robust even if the cursor leaves the panel.
+        /// </summary>
+        private void UpdateWindowDrag()
+        {
+            if (!windowDragging)
+                return;
+
+            if (Main.mouseLeft)
+            {
+                Main.LocalPlayer.mouseInterface = true; // block item use/world interaction while dragging
+                Vector2 target = Main.MouseScreen - windowDragOffset;
+                if (!windowMoved &&
+                    Vector2.DistanceSquared(target, new Vector2(bannerPanel.Left.Pixels, bannerPanel.Top.Pixels)) >= DragThresholdSq)
+                {
+                    windowMoved = true;
+                }
+
+                if (windowMoved)
+                {
+                    target = ClampToScreen(target);
+                    bannerPanel.Left.Set(target.X, 0f);
+                    bannerPanel.Top.Set(target.Y, 0f);
+                    bannerPanel.Recalculate();
+                    PositionElements();
+                }
+            }
+            else
+            {
+                windowDragging = false;
+                if (windowMoved)
+                    SaveWindowPosition();
+                // Cleared here (after the save, and after BannerPanelLeftClicked has read it) so the
+                // drag-end save is never skipped and the next plain click deposits normally.
+                windowMoved = false;
+            }
+        }
+
+        /// <summary>Keeps the given panel top-left within the screen bounds.</summary>
+        private Vector2 ClampToScreen(Vector2 topLeft)
+        {
+            float maxX = Math.Max(0f, Main.screenWidth - bannerPanel.GetDimensions().Width);
+            float maxY = Math.Max(0f, Main.screenHeight - bannerPanel.GetDimensions().Height);
+            return new Vector2(MathHelper.Clamp(topLeft.X, 0f, maxX), MathHelper.Clamp(topLeft.Y, 0f, maxY));
+        }
+
+        /// <summary>Persists the current window position to the client config so it survives a restart.</summary>
+        private void SaveWindowPosition()
+        {
+            BannerCollectorConfig config = BannerCollectorConfig.Instance;
+            if (config == null)
+                return;
+
+            config.WindowX = (int)Math.Round(bannerPanel.Left.Pixels);
+            config.WindowY = (int)Math.Round(bannerPanel.Top.Pixels);
+            config.Save();
+        }
+
+        /// <summary>
+        /// Applies the window position saved in the config each time the window opens, so it always
+        /// reflects the last dragged spot - and, after "Reset to Defaults", returns to the original
+        /// position. Clamped to the screen in case the saved spot is now off-screen (e.g. after a
+        /// resolution change).
+        /// </summary>
+        private void RestoreWindowPosition()
+        {
+            BannerCollectorConfig config = BannerCollectorConfig.Instance;
+            if (config == null)
+                return;
+
+            Vector2 pos = ClampToScreen(new Vector2(config.WindowX, config.WindowY));
+            bannerPanel.Left.Set(pos.X, 0f);
+            bannerPanel.Top.Set(pos.Y, 0f);
+            bannerPanel.Recalculate();
         }
 
         private void SortFilterList()
@@ -311,6 +421,7 @@ namespace BannerCollector
             bannerPanel.Top.Set(258, 0f);
             bannerPanel.Left.Set(20f, 0f);
             bannerPanel.OnLeftClick += BannerPanelLeftClicked;
+            bannerPanel.OnLeftMouseDown += StartWindowDrag; // begin a window drag from the panel background
 
             //패널의 UI들은 bannerCollecterVisible에서 좌표 정함.
             buttonLeft = new ButtonLeft();
@@ -470,12 +581,23 @@ namespace BannerCollector
 
         public override void Update(GameTime gameTime)
         {
-            if (Main.playerInventory == false)
+            // Keep the window in sync with the (now persistent) collection toggle: hide it when the
+            // inventory closes WITHOUT clearing the toggle, and re-show it when the inventory is
+            // reopened if the toggle is still "open" (CurrentState == 1). This makes the toggle
+            // sticky across inventory toggles and, with the saved CollectionOpen, across sessions.
+            BannerButtonBuilderToggle toggle = BannerButtonBuilderToggle.Instance;
+            if (!Main.playerInventory)
             {
-                BannerCollectorVisible = false;
-                BannerButtonBuilderToggle.Instance.CurrentState = 0;
+                if (bannerCollectorVisible)
+                    BannerCollectorVisible = false;
+            }
+            else if (toggle != null && toggle.CurrentState == 1 && !bannerCollectorVisible)
+            {
+                BannerCollectorVisible = true;
             }
             base.Update(gameTime);
+
+            UpdateWindowDrag(); // move the window if a drag is in progress (after element events ran)
 
             // Close the mod dropdown when a fresh left click lands outside it (and outside the
             // button that toggles it). Uses own up->down edge detection rather than
@@ -676,6 +798,11 @@ namespace BannerCollector
         }
         private void BannerPanelLeftClicked(UIMouseEvent evt, UIElement listeningElement)
         {
+            // A click that finished a window drag must not also deposit the held item. windowMoved is
+            // only read here (not cleared) - UpdateWindowDrag runs right after this, saves the new
+            // position and clears the flag, so clearing it here would lose the position save.
+            if (windowMoved)
+                return;
             MouseItemToSlot();
         }
 
