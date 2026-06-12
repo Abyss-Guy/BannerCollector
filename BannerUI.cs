@@ -36,8 +36,9 @@ namespace BannerCollector
         UIPanel modDropdownPanel;
         bool modDropdownOpen;
         bool modPrevMouseLeft; // previous-frame left button state, for outside-click detection
-        const float DropdownPadding = 8f; // inner gap between the panel border and the rows
-        const float DropdownGap = 4f;     // gap between the filter button and the panel
+        const float DropdownPadding = 8f;    // inner gap between the panel border and the rows
+        const float DropdownGap = 4f;        // gap between the filter button and the panel
+        const float DropdownColumnGap = 6f;  // gap between wrapped columns when the list is too tall to fit
         ButtonClose buttonClose;
         BannerSlot[] bannerSlot;
         ButtonPage[] buttonPage;
@@ -581,8 +582,11 @@ namespace BannerCollector
         }
 
         /// <summary>
-        /// Appends the dropdown rows in a vertical column directly below the mod-filter button.
-        /// Rows are appended last so they draw on top of the banner grid.
+        /// Appends the dropdown rows below the mod-filter button. The rows fill a column top-to-bottom
+        /// and wrap into a new column to the right whenever the next row would fall off the bottom of
+        /// the screen, so a long mod list never runs past the screen edge. The panel is sized to the
+        /// resulting grid and, if the extra columns would overflow the right edge, shifted left to stay
+        /// on-screen. Rows are appended last so they draw on top of the banner grid.
         /// </summary>
         private void OpenModDropdown()
         {
@@ -591,6 +595,25 @@ namespace BannerCollector
 
             float panelLeft = buttonFilterMod.Left.Pixels;
             float panelTop = buttonFilterMod.Top.Pixels + buttonFilterMod.Height.Pixels + DropdownGap;
+
+            // Rows that fit in one column between the panel top and the bottom of the screen. These
+            // element coordinates are in the same space as Main.screenWidth/Height (the same basis the
+            // window-drag clamp uses), so they are compared directly - no UI-scale conversion. Because
+            // panelTop follows the (movable) window, the fit recomputes wherever the window sits.
+            float available = Main.screenHeight - panelTop - DropdownPadding * 2f;
+            int rowsPerColumn = Math.Max(1, (int)(available / ButtonModEntry.RowHeight));
+            rowsPerColumn = Math.Min(rowsPerColumn, modEntries.Length);
+            int columnCount = (int)Math.Ceiling((double)modEntries.Length / rowsPerColumn);
+
+            // Size the panel to the grid, then keep it on-screen horizontally (shift left if the extra
+            // columns would overflow the right edge).
+            float columnStride = ButtonModEntry.RowWidth + DropdownColumnGap;
+            modDropdownPanel.Width.Set((columnCount - 1) * columnStride + ButtonModEntry.RowWidth + DropdownPadding * 2f, 0f);
+            modDropdownPanel.Height.Set(rowsPerColumn * ButtonModEntry.RowHeight + DropdownPadding * 2f, 0f);
+
+            if (panelLeft + modDropdownPanel.Width.Pixels > Main.screenWidth)
+                panelLeft = Math.Max(0f, Main.screenWidth - modDropdownPanel.Width.Pixels);
+
             modDropdownPanel.Left.Set(panelLeft, 0f);
             modDropdownPanel.Top.Set(panelTop, 0f);
             Append(modDropdownPanel); // appended first so the rows draw on top of it
@@ -599,8 +622,10 @@ namespace BannerCollector
             float rowTop = panelTop + DropdownPadding;
             for (int i = 0; i < modEntries.Length; i++)
             {
-                modEntries[i].Left.Set(rowLeft, 0f);
-                modEntries[i].Top.Set(rowTop + i * ButtonModEntry.RowHeight, 0f);
+                int column = i / rowsPerColumn;
+                int row = i % rowsPerColumn;
+                modEntries[i].Left.Set(rowLeft + column * columnStride, 0f);
+                modEntries[i].Top.Set(rowTop + row * ButtonModEntry.RowHeight, 0f);
                 Append(modEntries[i]);
             }
             modDropdownOpen = true;
