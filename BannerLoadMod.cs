@@ -36,7 +36,7 @@ namespace BannerCollector
             // the Calamity banner atlas, so banner sprites never desync when Calamity adds or
             // removes banners. The name list is matched against the loaded mod at runtime.
             #region CalamityMod
-            AddItemIconBanners("CalamityMod", CalamityBanners, CalamityHardModeBanners);
+            AddItemIconBanners("CalamityMod", CalamityBanners, CalamityHardModeBanners, CalamityPostMoonLordBanners);
             #endregion
 
             // Calamity Fables is a Calamity add-on, so it is kept right next to Calamity.
@@ -72,9 +72,10 @@ namespace BannerCollector
             #endregion
 
             #region ContinentOfJourney
-            // Homeward Journey: every banner enemy is hardmode (the only pre-hardmode enemy,
-            // Bucket Zombie, has no banner), so the whole list is the hardmode set.
-            AddItemIconBanners("ContinentOfJourney", ContinentOfJourneyBanners, new HashSet<string>(ContinentOfJourneyBanners));
+            // Hardmode set is every banner except the post-Moon-Lord ones, so the tiers stay exclusive.
+            AddItemIconBanners("ContinentOfJourney", ContinentOfJourneyBanners,
+                new HashSet<string>(ContinentOfJourneyBanners.Except(ContinentOfJourneyPostMoonLordBanners)),
+                ContinentOfJourneyPostMoonLordBanners);
             #endregion
 
             #region Split
@@ -82,7 +83,7 @@ namespace BannerCollector
             #endregion
 
             #region ElementsAwoken
-            AddItemIconBanners("ElementsAwoken", ElementsAwokenBanners, ElementsAwokenHardModeBanners);
+            AddItemIconBanners("ElementsAwoken", ElementsAwokenBanners, ElementsAwokenHardModeBanners, ElementsAwokenPostMoonLordBanners);
             #endregion
 
             #region Redemption
@@ -108,7 +109,11 @@ namespace BannerCollector
         /// hardmode/pre-hardmode filter. Names not in the set (or when null) are treated
         /// as pre-hardmode.
         /// </param>
-        private static void AddItemIconBanners(string modName, string[] bannerNames, HashSet<string> hardModeNames = null)
+        /// <param name="postMoonLordNames">
+        /// Optional set of post-Moon-Lord banner names, kept out of <paramref name="hardModeNames"/>
+        /// so the progression tiers stay mutually exclusive.
+        /// </param>
+        private static void AddItemIconBanners(string modName, string[] bannerNames, HashSet<string> hardModeNames = null, HashSet<string> postMoonLordNames = null)
         {
             if (!ModList.Contains(modName))
                 return;
@@ -151,6 +156,7 @@ namespace BannerCollector
                     ItemName = item.Name,
                     BannerCount = 0,
                     IsHardMode = hardModeNames != null && hardModeNames.Contains(bannerName),
+                    IsPostMoonLord = postMoonLordNames != null && postMoonLordNames.Contains(bannerName),
                     ModName = modName,
                     UseItemIcon = true,
                     TileType = sample.createTile,
@@ -283,20 +289,26 @@ namespace BannerCollector
         {
             "AnthozoanCrabBanner", "AriesBanner", "AstralProbeBanner", "AstralSlimeBanner",
             "AstralachneaBanner", "AtlasBanner", "BelchingCoralBanner", "BlindedAnglerBanner",
-            "BloatfishBanner", "BloomSlimeBanner", "BobbitWormBanner", "BohldohrBanner",
-            "ChaoticPufferBanner", "CloudElementalBanner", "ColossalSquidBanner", "CryoSlimeBanner",
+            "BohldohrBanner", "ChaoticPufferBanner", "CloudElementalBanner", "CryoSlimeBanner",
             "CryonBanner", "DevilFishBanner", "EarthElementalBanner", "EidolistBanner",
-            "EidolonWyrmJuvenileBanner", "FlakCrabBanner", "FusionFeederBanner", "GammaSlimeBanner",
-            "GiantSquidBanner", "GulperEelBanner", "HadarianBanner", "IceClasperBanner",
-            "ImpiousImmolatorBanner", "InfernalCongealmentBanner", "IrradiatedSlimeBanner", "MantisBanner",
-            "MantisShrimpBanner", "MelterBanner", "MirageJellyBanner", "NovaBanner",
-            "OrthoceraBanner", "OverloadedSoldierBanner", "PerennialSlimeBanner", "PestilentSlimeBanner",
-            "PhantomSpiritBanner", "PlagueChargerBanner", "PlaguebringerBanner", "PlagueshellBanner",
-            "ProfanedEnergyBanner", "ReaperSharkBanner", "RenegadeWarlockBanner", "ScornEaterBanner",
-            "SeaSerpentBanner", "ShockstormShuttleBanner", "SightseerColliderBanner", "SightseerSpitterBanner",
-            "StellarCulexBanner", "SulphurousSkaterBanner", "TrilobiteBanner", "VirulingBanner",
+            "FlakCrabBanner", "FusionFeederBanner", "GiantSquidBanner", "GulperEelBanner",
+            "HadarianBanner", "IceClasperBanner", "InfernalCongealmentBanner", "IrradiatedSlimeBanner",
+            "MantisBanner", "MantisShrimpBanner", "MelterBanner", "MirageJellyBanner",
+            "NovaBanner", "OrthoceraBanner", "OverloadedSoldierBanner", "PerennialSlimeBanner",
+            "PestilentSlimeBanner", "PlagueChargerBanner", "PlaguebringerBanner", "PlagueshellBanner",
+            "RenegadeWarlockBanner", "SeaSerpentBanner", "ShockstormShuttleBanner", "SightseerColliderBanner",
+            "SightseerSpitterBanner", "StellarCulexBanner", "SulphurousSkaterBanner", "TrilobiteBanner",
+            "VirulingBanner",
             // Added in Calamity 2.1.2 (Burrower, CladCrab and Shromble are pre-hardmode)
-            "AstraglomerateBanner", "AuroraSpiritBanner", "DraconicSwarmerBanner",
+            "AstraglomerateBanner", "AuroraSpiritBanner",
+        };
+
+        // Calamity banners from post-Moon-Lord enemies.
+        private static readonly HashSet<string> CalamityPostMoonLordBanners = new HashSet<string>
+        {
+            "BloatfishBanner", "BloomSlimeBanner", "BobbitWormBanner", "ColossalSquidBanner",
+            "DraconicSwarmerBanner", "EidolonWyrmJuvenileBanner", "GammaSlimeBanner", "ImpiousImmolatorBanner",
+            "PhantomSpiritBanner", "ProfanedEnergyBanner", "ReaperSharkBanner", "ScornEaterBanner",
         };
 
         #endregion
@@ -507,6 +519,20 @@ namespace BannerCollector
             "VoidWeaverBanner", "WardenEyeBanner", "WhiteCultistBanner", "WindElementalBanner",
         };
 
+        // Homeward Journey banners from post-Moon-Lord enemies.
+        private static readonly HashSet<string> ContinentOfJourneyPostMoonLordBanners = new HashSet<string>
+        {
+            "ChewingThingBanner", "CursedLingererBanner", "DesertMimicBanner", "DrillerBanner",
+            "EyeholeBanner", "FlyingCoffinBanner", "ForbiddenJellyBanner", "GoldenEyeBanner",
+            "ImpMageBanner", "LinkPustuleBanner", "LivingNestBanner", "LostVikingsBanner",
+            "MagmaFlowerBanner", "MagmackerelBanner", "MeatPotBanner", "MicrorganBanner",
+            "MissleTurtleBanner", "MonarchButterflyBanner", "PharaohsHandBanner", "PolarMimicBanner",
+            "PrehistoricVirusBanner", "PrototypeSlimeBanner", "RoseGardenBanner", "ScreenDoorZombieBanner",
+            "ShyGhostBanner", "SoulstareBanner", "TempleMimicBanner", "ToothyBanner",
+            "ValkyrieBanner", "WindElementalBanner", "EnchantedVineBanner", "AbsoluteZeroBanner",
+            "SlimySpiritBanner", "SolenopsisBanner", "WhiteCultistBanner", "SunlightDiscipleBanner",
+        };
+
         #endregion
 
         #region Split Banners
@@ -546,11 +572,16 @@ namespace BannerCollector
 
         private static readonly HashSet<string> ElementsAwokenHardModeBanners = new HashSet<string>
         {
-            "EtherealHunterBanner", "FrostElementalBanner", "GiantTickBanner", "GiantVampireBatBanner",
-            "ImmolatorBanner", "InfernoSpiritBanner", "MortemWalkerBanner", "ReaverSlimeBanner",
-            "SkyCrawlerBanner", "SkyElementalBanner", "StellarBatBanner", "StellarEntityBanner",
-            "VoidCrawlerBanner", "VoidElementalBanner", "VoidGolemBanner", "VoidKnightBanner",
-            "WaterElementalBanner", "ZergCasterBanner",
+            "FrostElementalBanner", "GiantVampireBatBanner", "SkyElementalBanner", "WaterElementalBanner",
+        };
+
+        // Elements Awoken banners from post-Moon-Lord enemies.
+        private static readonly HashSet<string> ElementsAwokenPostMoonLordBanners = new HashSet<string>
+        {
+            "EtherealHunterBanner", "GiantTickBanner", "ImmolatorBanner", "InfernoSpiritBanner",
+            "MortemWalkerBanner", "ReaverSlimeBanner", "SkyCrawlerBanner", "StellarBatBanner",
+            "StellarEntityBanner", "VoidCrawlerBanner", "VoidElementalBanner", "VoidGolemBanner",
+            "VoidKnightBanner", "ZergCasterBanner",
         };
 
         #endregion

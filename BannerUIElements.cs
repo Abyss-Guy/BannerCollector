@@ -380,7 +380,7 @@ namespace BannerCollector
 
     internal class ButtonFilterMode : BannerUIElements
     {
-        private string[] filteringText = { "Filter All", "Filter Pre-Hardmode", "Filter Hardmode" };
+        private string[] filteringText = { "Filter All", "Filter Pre-Hardmode", "Filter Hardmode", "Filter Post-Moon Lord" };
         public int filterIndex;
         private string hoverText;
         Color color = new Color(180, 180, 180);
@@ -406,6 +406,7 @@ namespace BannerCollector
 
             if (filterIndex == 1) { texture = BannerCollectorResources.Button_FilterPreHard; }
             else if (filterIndex == 2) { texture = BannerCollectorResources.Button_FilterHard; }
+            else if (filterIndex == 3) { texture = BannerCollectorResources.Button_FilterPostMoonLord; }
             else { texture = BannerCollectorResources.Button_FilterMode; }
 
             Rectangle inner = GetInnerDimensions().ToRectangle();
@@ -712,6 +713,12 @@ namespace BannerCollector
                     Rectangle spriteFrame = new Rectangle(0, 0, 14, 12);
                     spriteBatch.Draw(BannerCollectorResources.Pin_HardMode.Value, spritePos, spriteFrame, Color.White);
                 }
+                else if (bannerInfo.IsPostMoonLord)
+                {
+                    Vector2 spritePos = new Vector2(this.Left.Pixels - 5, this.Top.Pixels - 4);
+                    Rectangle spriteFrame = new Rectangle(0, 0, 14, 12);
+                    spriteBatch.Draw(BannerCollectorResources.Pin_PostMoonLoard.Value, spritePos, spriteFrame, Color.White);
+                }
             }
 
             if (bannerInfo.ItemId != -1)
@@ -867,6 +874,12 @@ namespace BannerCollector
                 Vector2 spritePos = new Vector2(this.Left.Pixels - 5, this.Top.Pixels - 4);
                 Rectangle spriteFrame = new Rectangle(0, 0, 14, 12);
                 spriteBatch.Draw(BannerCollectorResources.Pin_HardMode.Value, spritePos, spriteFrame, Color.White);
+            }
+            else if (bannerInfo.IsPostMoonLord)
+            {
+                Vector2 spritePos = new Vector2(this.Left.Pixels - 5, this.Top.Pixels - 4);
+                Rectangle spriteFrame = new Rectangle(0, 0, 14, 12);
+                spriteBatch.Draw(BannerCollectorResources.Pin_PostMoonLoard.Value, spritePos, spriteFrame, Color.White);
             }
         }
 

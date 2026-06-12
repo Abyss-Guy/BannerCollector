@@ -2723,6 +2723,7 @@ namespace BannerCollector
         private int bannerCount = 0;
         private string itemName = "";
         private bool isHardMode = false;
+        private bool isPostMoonLord = false;
         private int index = -1; //Tiles_91 파일의 배너 순서
         private string modName = null;
         private bool useItemIcon = false;
@@ -2757,6 +2758,12 @@ namespace BannerCollector
         {
             get { return isHardMode; }
             set { isHardMode = value; }
+        }
+
+        public bool IsPostMoonLord
+        {
+            get { return isPostMoonLord; }
+            set { isPostMoonLord = value; }
         }
 
         public int Index

@@ -372,10 +372,13 @@ namespace BannerCollector
                 case 0: //전체
                     break;
                 case 1: //하드모드 이전
-                    bannerList.RemoveAll(banner => banner.IsHardMode == true);
+                    bannerList.RemoveAll(banner => banner.IsHardMode || banner.IsPostMoonLord);
                     break;
                 case 2: //하드모드
                     bannerList.RemoveAll(banner => banner.IsHardMode == false);
+                    break;
+                case 3: //포스트 문로드
+                    bannerList.RemoveAll(banner => banner.IsPostMoonLord == false);
                     break;
             }
 
@@ -691,13 +694,13 @@ namespace BannerCollector
         }
         private void ButtonFilterModeClicked(UIMouseEvent evt, UIElement listeningElement)
         {
-            buttonFilterMode.ChangeState((buttonFilterMode.filterIndex + 1) % 3);
+            buttonFilterMode.ChangeState((buttonFilterMode.filterIndex + 1) % 4);
             filterMode = buttonFilterMode.filterIndex;
             SortFilterList();
         }
         private void ButtonFilterModeRightClicked(UIMouseEvent evt, UIElement listeningElement)
         {
-            buttonFilterMode.ChangeState((buttonFilterMode.filterIndex + 2) % 3);
+            buttonFilterMode.ChangeState((buttonFilterMode.filterIndex + 3) % 4);
             filterMode = buttonFilterMode.filterIndex;
             SortFilterList();
         }
