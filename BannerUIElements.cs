@@ -49,6 +49,13 @@ namespace BannerCollector
 
     internal class BannerPanel : BannerUIElements
     {
+        // Origin (UI space) and scale of the panel's most recent Draw. Published so banner slots can
+        // place their icons on the EXACT same integer-pixel grid as the pill cells; otherwise the icon
+        // and its cell round to the screen grid independently and drift apart by a pixel at fractional
+        // UI scales. The panel is drawn before the slots each frame, so this is always current for them.
+        internal static Vector2 LastOriginUI;
+        internal static float LastUIScale = 1f;
+
         public BannerPanel()
         {
             Width.Pixels = BannerGrid.PanelWidth;
@@ -96,6 +103,10 @@ namespace BannerCollector
             Vector2 origin = Vector2.Transform(new Vector2(dst.X, dst.Y), Main.UIScaleMatrix);
             int ox = (int)Math.Round(origin.X);
             int oy = (int)Math.Round(origin.Y);
+
+            // Publish this draw's origin/scale so banner slots align their icons to the same grid.
+            LastOriginUI = new Vector2(dst.X, dst.Y);
+            LastUIScale = ui;
 
             spriteBatch.End();
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
@@ -514,7 +525,7 @@ namespace BannerCollector
     /// </summary>
     internal class ButtonModEntry : BannerUIElements
     {
-        public const float RowWidth = 300f;
+        public const float RowWidth = 200f;
         public const float RowHeight = 30f;
 
         private readonly string label;
@@ -543,7 +554,7 @@ namespace BannerCollector
                 spriteBatch.Draw(TextureAssets.MagicPixel.Value, inner, new Color(120, 120, 160) * 0.5f);
 
             var font = FontAssets.MouseText.Value;
-            const float scale = 1.2f;
+            const float scale = 1f;
             Vector2 textSize = font.MeasureString(label) * scale;
             Vector2 textPos = new Vector2(inner.X + 6, inner.Y + (inner.Height - textSize.Y) / 2f);
             Color textColor = hovered ? Color.White : new Color(220, 220, 220);
@@ -754,19 +765,33 @@ namespace BannerCollector
         /// <param name="frameCount">Number of stacked frames (3 for a banner).</param>
         private void DrawBannerFrames(SpriteBatch spriteBatch, Texture2D texture, int srcX, int srcY, int strideY, int cellW, int frameH, int frameCount, Color color)
         {
-            // Fit the whole banner into the slot (downscaling high-res sheets, never cropping),
-            // then convert to screen pixels so frame boundaries are pixel-exact at any UI scale.
+            // Fit the whole banner into the slot (downscaling high-res sheets, never cropping).
             float fit = Math.Min(Width.Pixels / cellW, Height.Pixels / (frameCount * frameH));
-            float scale = fit * Main.UIScale;                       // sheet pixel -> screen pixel
-            int drawW = Math.Max(1, (int)Math.Round(cellW * scale));
 
-            // Top-left of the banner (centred in the slot) in exact screen coordinates, taken
-            // through the UI matrix so any offset it carries is respected.
-            Vector2 screen = Vector2.Transform(
-                new Vector2(this.Left.Pixels + (Width.Pixels - cellW * fit) / 2f, this.Top.Pixels),
-                Main.UIScaleMatrix);
-            int left = (int)Math.Round(screen.X);
-            int top = (int)Math.Round(screen.Y);
+            // Resolve THIS slot's pill cell as the panel actually renders it. BannerPanel publishes its
+            // draw origin (UI space) and scale, and draws each cell as origin-pixel + rounded offset;
+            // the slot is a fixed inset into its cell (same pitch), so the cell is found from the slot's
+            // own position without its row/column index.
+            float ui = BannerPanel.LastUIScale;
+            int ox = (int)Math.Round(BannerPanel.LastOriginUI.X * ui);
+            int oy = (int)Math.Round(BannerPanel.LastOriginUI.Y * ui);
+            float cellX = (this.Left.Pixels - BannerPanel.LastOriginUI.X) - (BannerGrid.FirstSlotX - BannerGrid.EdgeW);
+            float cellY = (this.Top.Pixels - BannerPanel.LastOriginUI.Y) - (BannerGrid.FirstSlotY - BannerGrid.TopEdgeH);
+            int cx0 = ox + (int)Math.Round(cellX * ui);
+            int cx1 = ox + (int)Math.Round((cellX + BannerGrid.CellW) * ui);
+            int cy0 = oy + (int)Math.Round(cellY * ui);
+            int cy1 = oy + (int)Math.Round((cellY + BannerGrid.CellH) * ui);
+
+            // The banner box in cell-local pixels (centred horizontally in the slot, top-aligned), then
+            // mapped through the rendered cell the SAME way the pill maps its recess: a screen edge is
+            // cellLeft + round(cellLocal / CellW * cellWidth). Because the icon and the recess are the
+            // same fraction of the same rendered rect, their margins stay equal at ANY UI scale - no
+            // particular scale can "land wrong" the way independent rounding did. (cellW here is the
+            // banner FRAME width in the sheet; BannerGrid.CellW is the pill column width.)
+            float bx = (BannerGrid.FirstSlotX - BannerGrid.EdgeW) + (Width.Pixels - cellW * fit) / 2f;
+            float by = BannerGrid.FirstSlotY - BannerGrid.TopEdgeH;
+            int left = cx0 + (int)Math.Round(bx / BannerGrid.CellW * (cx1 - cx0));
+            int drawW = Math.Max(1, cx0 + (int)Math.Round((bx + cellW * fit) / BannerGrid.CellW * (cx1 - cx0)) - left);
 
             spriteBatch.End();
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp,
@@ -774,10 +799,10 @@ namespace BannerCollector
 
             for (int f = 0; f < frameCount; f++)
             {
-                // Whole-pixel, gap-free rows (y1 of one frame == y0 of the next), so a frame edge
-                // never lands mid-pixel and samples the neighbouring padding texel.
-                int y0 = top + (int)Math.Round(f * frameH * scale);
-                int y1 = top + (int)Math.Round((f + 1) * frameH * scale);
+                // Each frame's top/bottom mapped through the cell row, so rows stay gap-free (y1 of one
+                // frame == y0 of the next) and the whole banner keeps equal margins inside the cell.
+                int y0 = cy0 + (int)Math.Round((by + f * frameH * fit) / BannerGrid.CellH * (cy1 - cy0));
+                int y1 = cy0 + (int)Math.Round((by + (f + 1) * frameH * fit) / BannerGrid.CellH * (cy1 - cy0));
                 Rectangle dst = new Rectangle(left, y0, drawW, y1 - y0);
                 Rectangle src = new Rectangle(srcX, srcY + f * strideY, cellW, frameH);
                 spriteBatch.Draw(texture, dst, src, color);
