@@ -395,6 +395,18 @@ namespace BannerCollector
             }
 
             totalPages = (int)Math.Ceiling((double)bannerList.Count / bannerSlot.Length);
+            buttonPage[page - 1].UnSetPage();
+            buttonPage[0].SetPage();
+            page = 1;
+
+            // Only attach/lay out the on-screen elements (the page dots and the slots) while the
+            // window is open. While it is closed, the filtered list, totalPages and current page set
+            // above are all the open path needs to lay everything out; appending them now would draw
+            // the dots and banners floating before the inventory is even opened (e.g. when this runs
+            // from RestoreWindowSettings on world load).
+            if (!bannerCollectorVisible)
+                return;
+
             float pX = bannerPanel.GetDimensions().X;
             float pY = bannerPanel.GetDimensions().Y;
             float pW = bannerPanel.GetDimensions().Width;
@@ -403,11 +415,56 @@ namespace BannerCollector
             {
                 Append(buttonPage[i]);
             }
-            buttonPage[page - 1].UnSetPage();
-            buttonPage[0].SetPage();
-            page = 1;
             PageLoad();
         }
+
+        /// <summary>
+        /// Mirrors the in-window view settings (sort mode and the three filters) into the client
+        /// config and writes it to disk, so they survive a restart. Called after each change - a user
+        /// click, never a per-frame tick, so the occasional small write costs nothing. The config
+        /// fields are hidden from the config menu and untouched by "Reset to Defaults".
+        /// </summary>
+        private void SaveWindowSettings()
+        {
+            BannerCollectorConfig config = BannerCollectorConfig.Instance;
+            if (config == null)
+                return;
+            config.SortByCount = Sorting;
+            config.OwnershipFilter = filter;
+            config.ProgressionFilter = filterMode;
+            config.ModFilter = filterMod;
+            config.Save();
+        }
+
+        /// <summary>
+        /// Applies the in-window view settings saved by <see cref="SaveWindowSettings"/> back onto the
+        /// toolbar buttons and the list. Call on world load AFTER the mod-filter dropdown has been
+        /// rebuilt (<see cref="BuildModEntries"/> clears the mod filter). Every loaded value is clamped
+        /// to its button's valid range - in particular the saved mod filter falls back to "All" if it
+        /// would point past the current dropdown (e.g. a mod uninstalled since last session), so a
+        /// stale value can never select a missing entry or go out of range.
+        /// </summary>
+        public void RestoreWindowSettings()
+        {
+            BannerCollectorConfig config = BannerCollectorConfig.Instance;
+            if (config == null || bannerSlot == null)
+                return;
+
+            Sorting = config.SortByCount;
+            buttonSort.hoverText = Sorting ? buttonSort.sortingText2 : buttonSort.sortingText1;
+
+            filter = Math.Clamp(config.OwnershipFilter, 0, 2);
+            buttonFilter.ChangeState(filter);
+
+            filterMode = Math.Clamp(config.ProgressionFilter, 0, 3);
+            buttonFilterMode.ChangeState(filterMode);
+
+            filterMod = (config.ModFilter >= 0 && config.ModFilter < buttonFilterMod.modNum) ? config.ModFilter : 0;
+            buttonFilterMod.ChangeState(filterMod);
+
+            SortFilterList();
+        }
+
         public void InitializePage()
         {
             RebuildGridIfNeeded(); // make the slots/panel match the configured grid before paging
@@ -651,6 +708,7 @@ namespace BannerCollector
             filterMod = value;
             CloseModDropdown();
             SortFilterList();
+            SaveWindowSettings();
         }
         
         public  void ShowBannerCollection(bool show)
@@ -722,12 +780,14 @@ namespace BannerCollector
             buttonFilterMode.ChangeState((buttonFilterMode.filterIndex + 1) % 4);
             filterMode = buttonFilterMode.filterIndex;
             SortFilterList();
+            SaveWindowSettings();
         }
         private void ButtonFilterModeRightClicked(UIMouseEvent evt, UIElement listeningElement)
         {
             buttonFilterMode.ChangeState((buttonFilterMode.filterIndex + 3) % 4);
             filterMode = buttonFilterMode.filterIndex;
             SortFilterList();
+            SaveWindowSettings();
         }
 
         private void ButtonFilterClicked(UIMouseEvent evt, UIElement listeningElement)
@@ -735,6 +795,7 @@ namespace BannerCollector
             buttonFilter.ChangeState((buttonFilter.filterIndex + 1) % 3);
             filter = buttonFilter.filterIndex;
             SortFilterList();
+            SaveWindowSettings();
         }
 
         private void ButtonFilterRightClicked(UIMouseEvent evt, UIElement listeningElement)
@@ -742,6 +803,7 @@ namespace BannerCollector
             buttonFilter.ChangeState((buttonFilter.filterIndex + 2) % 3);
             filter = buttonFilter.filterIndex;
             SortFilterList();
+            SaveWindowSettings();
         }
 
 
@@ -759,6 +821,7 @@ namespace BannerCollector
 
             }
             SortFilterList();
+            SaveWindowSettings();
         }
 
         private void ButtonPageClicked(UIMouseEvent evt, UIElement listeningElement, int i)

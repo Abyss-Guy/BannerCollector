@@ -54,6 +54,20 @@ namespace BannerCollector
         [JsonProperty]
         internal bool CollectionOpen;
 
+        // Remembered in-window view settings - the toolbar INSIDE the mod window (sort mode and the
+        // three filters), NOT the config menu. Hidden the same way as CollectionOpen ([JsonProperty]
+        // serializes them; being non-public keeps them off the menu) and, like it, left untouched by
+        // "Reset to Defaults" (which only resets the menu-visible fields). BannerUI mirrors them on
+        // every change and reapplies them on world load. Natural defaults: Sort by Type, All filters.
+        [JsonProperty]
+        internal bool SortByCount;       // false = Sort by Type, true = Sort by Count
+        [JsonProperty]
+        internal int OwnershipFilter;    // 0 = All, 1 = Owned, 2 = Unowned
+        [JsonProperty]
+        internal int ProgressionFilter;  // 0 = All, 1 = Pre-Hardmode, 2 = Hardmode, 3 = Post-Moon Lord
+        [JsonProperty]
+        internal int ModFilter;          // 0 = All, 1 = All Mods, 2 = Terraria, 3.. = a specific mod
+
         // 정적 인스턴스
         public static BannerCollectorConfig Instance { get; private set; }
 

@@ -147,6 +147,10 @@ namespace BannerCollector
                 bannerUI.SetFirstPage();
                 bannerUI.ButtonModSetDefault(); //모드 켜져있으면 나오는 모드 필터 버튼 초기화
 
+                // Reapply the saved in-window view settings (sort + filters). Must come after
+                // ButtonModSetDefault, which rebuilds the mod-filter dropdown and clears the mod filter.
+                bannerUI.RestoreWindowSettings();
+
                 // Restore the remembered open/closed state of the collection toggle so it persists
                 // across sessions; the window then shows when the inventory is next opened.
                 if (BannerButtonBuilderToggle.Instance != null)
