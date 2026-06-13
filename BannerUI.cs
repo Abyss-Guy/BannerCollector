@@ -9,6 +9,7 @@ using BannerCollector.Resources;
 using System.Windows.Forms;
 using rail;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Terraria.ModLoader.UI;
 using Terraria;
 using Microsoft.Xna.Framework.Graphics;
@@ -858,8 +859,116 @@ namespace BannerCollector
                 //bannerList = BannerLoad.BannerDict.Values.ToList();
             }
         }
+
+        /// <summary>
+        /// Shift quick-transfers the whole stack of <paramref name="banner"/> out of the collection. With a
+        /// vanilla container open the stack goes into that container ("straight to storage"); otherwise it
+        /// goes into the player's inventory. Only the amount that actually fit is removed from the
+        /// collection, so a full destination simply leaves the remainder behind.
+        /// </summary>
+        private void ShiftTransferFromCollection(BannerInfo banner)
+        {
+            Player player = Main.LocalPlayer;
+            int moved;
+            if (player.chest != -1)
+                moved = DepositIntoOpenContainer(player, banner.ItemId, banner.BannerCount); // vanilla chest/bank
+            else if (MagicStorageBridge.IsStorageOpen())
+                moved = MagicStorageBridge.Deposit(banner.ItemId, banner.BannerCount);        // Magic Storage
+            else
+                moved = MergeIntoSlots(player.inventory, 0, 50, banner.ItemId, banner.BannerCount, -1); // main + hotbar, never coin/ammo
+
+            if (moved > 0)
+            {
+                banner.BannerCount -= moved;
+                SoundEngine.PlaySound(SoundID.Grab);
+            }
+        }
+
+        /// <summary>
+        /// Deposits up to <paramref name="count"/> banners of <paramref name="itemType"/> into the container
+        /// the player currently has open, resolved from <see cref="Player.chest"/> exactly the way vanilla
+        /// does (world chest, piggy bank, safe, defender's forge or void vault). Returns the amount stored.
+        /// </summary>
+        private static int DepositIntoOpenContainer(Player player, int itemType, int count)
+        {
+            int netChestIndex; // >= 0 only for a world chest, which must be synced in multiplayer
+            Item[] container;
+            switch (player.chest)
+            {
+                case -2: container = player.bank.item; netChestIndex = -1; break;   // piggy bank
+                case -3: container = player.bank2.item; netChestIndex = -1; break;  // safe
+                case -4: container = player.bank3.item; netChestIndex = -1; break;  // defender's forge
+                case -5: container = player.bank4.item; netChestIndex = -1; break;  // void vault
+                default: container = Main.chest[player.chest].item; netChestIndex = player.chest; break; // world chest
+            }
+            return MergeIntoSlots(container, 0, container.Length, itemType, count, netChestIndex);
+        }
+
+        /// <summary>
+        /// Merges up to <paramref name="count"/> items of <paramref name="itemType"/> into slots
+        /// [<paramref name="start"/>, <paramref name="end"/>) of <paramref name="slots"/>: existing partial
+        /// stacks of the same item are topped up first, then empty slots are filled, each capped at the
+        /// item's max stack. When <paramref name="netChestIndex"/> is non-negative on a multiplayer client,
+        /// every changed slot is broadcast as a world-chest slot. Returns the amount actually stored.
+        /// </summary>
+        private static int MergeIntoSlots(Item[] slots, int start, int end, int itemType, int count, int netChestIndex)
+        {
+            if (count <= 0)
+                return 0;
+
+            int maxStack = new Item(itemType).maxStack;
+            int stored = 0;
+
+            // Pass 1: top up existing stacks of the same banner.
+            for (int i = start; i < end && stored < count; i++)
+            {
+                Item slot = slots[i];
+                if (slot == null || slot.IsAir || slot.type != itemType || slot.stack >= maxStack)
+                    continue;
+                int add = Math.Min(maxStack - slot.stack, count - stored);
+                slot.stack += add;
+                stored += add;
+                SyncContainerSlot(netChestIndex, i);
+            }
+
+            // Pass 2: fill empty slots with fresh stacks.
+            for (int i = start; i < end && stored < count; i++)
+            {
+                Item slot = slots[i];
+                if (slot != null && !slot.IsAir)
+                    continue;
+                int add = Math.Min(maxStack, count - stored);
+                slots[i] = new Item(itemType) { stack = add };
+                stored += add;
+                SyncContainerSlot(netChestIndex, i);
+            }
+
+            return stored;
+        }
+
+        /// <summary>Broadcasts a single world-chest slot change to the server (no-op off a multiplayer client
+        /// or for client-local banks, where <paramref name="netChestIndex"/> is negative).</summary>
+        private static void SyncContainerSlot(int netChestIndex, int slot)
+        {
+            if (netChestIndex >= 0 && Main.netMode == NetmodeID.MultiplayerClient)
+                NetMessage.SendData(MessageID.SyncChestItem, -1, -1, null, netChestIndex, slot);
+        }
+
         private void BannerSlotLeftMouseDown(UIMouseEvent evt, UIElement listeningElement, int i)
         {
+            // Vanilla-style shift quick-transfer OUT of the collection. Shift-click sends the banner stack
+            // straight into the open container if one is open ("straight to storage"), otherwise into the
+            // player's inventory - mirroring vanilla, where shift-click routes a chest item to the inventory
+            // and an inventory item to the open chest. Without shift it falls through to the normal
+            // cursor-based pick-up/deposit below.
+            if ((Main.keyState.IsKeyDown(Keys.LeftShift) || Main.keyState.IsKeyDown(Keys.RightShift))
+                && bannerSlot[i].bannerInfo != null && bannerSlot[i].bannerInfo.ItemId >= 0
+                && bannerSlot[i].bannerInfo.BannerCount > 0)
+            {
+                ShiftTransferFromCollection(bannerSlot[i].bannerInfo);
+                return;
+            }
+
             //마우스에 아이템을 들고있을 경우
             if (Main.mouseItem.stack > 0)
             {
