@@ -14,6 +14,7 @@ using Terraria.ModLoader.UI;
 using Terraria;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria.Audio;
+using Terraria.GameInput;
 using Terraria.ID;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Terraria.ModLoader;
@@ -40,6 +41,16 @@ namespace BannerCollector
         const float DropdownPadding = 8f;    // inner gap between the panel border and the rows
         const float DropdownGap = 4f;        // gap between the filter button and the panel
         const float DropdownColumnGap = 6f;  // gap between wrapped columns when the list is too tall to fit
+        const float DropdownScrollbarWidth = 20f; // right-hand lane reserved for the scrollbar in the fallback
+        // Mod-dropdown vertical scroll. Only used as a fallback when the wrapped columns would still run
+        // past the screen width; otherwise modScrollMaxRows stays 0 and the list behaves exactly as before.
+        // All recomputed on open in OpenModDropdown; positions are (re)applied by LayoutModRows.
+        int modScrollRows;        // current scroll offset, in whole rows
+        int modScrollMaxRows;     // max scroll offset (0 = everything fits, nothing scrolls)
+        int modRowsPerColumn;     // total rows in a column (may exceed the visible count when scrolling)
+        int modVisibleRows;       // rows shown at once (the scroll-window height)
+        float modRowLeft, modRowTop, modColumnStride; // cached row-grid origin so scrolling can re-lay out
+        UIScrollbar modScrollbar; // visible scrollbar shown only while the list scrolls
         ButtonClose buttonClose;
         BannerSlot[] bannerSlot;
         ButtonPage[] buttonPage;
@@ -659,15 +670,36 @@ namespace BannerCollector
             // window-drag clamp uses), so they are compared directly - no UI-scale conversion. Because
             // panelTop follows the (movable) window, the fit recomputes wherever the window sits.
             float available = Main.screenHeight - panelTop - DropdownPadding * 2f;
-            int rowsPerColumn = Math.Max(1, (int)(available / ButtonModEntry.RowHeight));
-            rowsPerColumn = Math.Min(rowsPerColumn, modEntries.Length);
+            int fitRows = Math.Max(1, (int)(available / ButtonModEntry.RowHeight));
+            float columnStride = ButtonModEntry.RowWidth + DropdownColumnGap;
+
+            // Common path: one column per fitRows worth of entries, growing rightwards (unchanged).
+            int rowsPerColumn = Math.Min(fitRows, modEntries.Length);
             int columnCount = (int)Math.Ceiling((double)modEntries.Length / rowsPerColumn);
 
-            // Size the panel to the grid, then keep it on-screen horizontally (shift left if the extra
-            // columns would overflow the right edge).
-            float columnStride = ButtonModEntry.RowWidth + DropdownColumnGap;
-            modDropdownPanel.Width.Set((columnCount - 1) * columnStride + ButtonModEntry.RowWidth + DropdownPadding * 2f, 0f);
-            modDropdownPanel.Height.Set(rowsPerColumn * ButtonModEntry.RowHeight + DropdownPadding * 2f, 0f);
+            // Fallback: if those columns would still run past the screen width, cap the column count to what
+            // fits and let the (now taller) columns scroll vertically, so the list is always fully reachable.
+            // Uses the same direct screen-size basis as the rest of this method, so it adapts to any
+            // resolution. Both bounds derive only from the live screen size and the row constants.
+            int fitColumns = Math.Max(1, (int)((Main.screenWidth - DropdownPadding * 2f + DropdownColumnGap) / columnStride));
+            bool scrolling = columnCount > fitColumns;
+            if (scrolling)
+            {
+                // Re-fit the columns with the scrollbar lane reserved, so the panel plus the bar still fit.
+                fitColumns = Math.Max(1, (int)((Main.screenWidth - DropdownPadding * 2f - DropdownScrollbarWidth + DropdownColumnGap) / columnStride));
+                columnCount = fitColumns;
+                rowsPerColumn = (int)Math.Ceiling((double)modEntries.Length / columnCount);
+            }
+            modRowsPerColumn = rowsPerColumn;
+            modVisibleRows = Math.Min(rowsPerColumn, fitRows);   // rows shown at once
+            modScrollMaxRows = rowsPerColumn - modVisibleRows;   // 0 unless the fallback kicked in
+            modScrollRows = 0;
+
+            // Size the panel to the (capped) grid - only the visible rows tall, plus the scrollbar lane when
+            // scrolling - then keep it on-screen horizontally (shift left if it would overflow the right edge).
+            float gridWidth = (columnCount - 1) * columnStride + ButtonModEntry.RowWidth;
+            modDropdownPanel.Width.Set(gridWidth + (scrolling ? DropdownScrollbarWidth : 0f) + DropdownPadding * 2f, 0f);
+            modDropdownPanel.Height.Set(modVisibleRows * ButtonModEntry.RowHeight + DropdownPadding * 2f, 0f);
 
             if (panelLeft + modDropdownPanel.Width.Pixels > Main.screenWidth)
                 panelLeft = Math.Max(0f, Main.screenWidth - modDropdownPanel.Width.Pixels);
@@ -676,17 +708,52 @@ namespace BannerCollector
             modDropdownPanel.Top.Set(panelTop, 0f);
             Append(modDropdownPanel); // appended first so the rows draw on top of it
 
-            float rowLeft = panelLeft + DropdownPadding;
-            float rowTop = panelTop + DropdownPadding;
+            modRowLeft = panelLeft + DropdownPadding;
+            modRowTop = panelTop + DropdownPadding;
+            modColumnStride = columnStride;
+
+            // Show the scrollbar in its reserved right-hand lane only while the list actually scrolls.
+            if (scrolling)
+            {
+                modScrollbar ??= new UIScrollbar();
+                modScrollbar.Width.Set(DropdownScrollbarWidth, 0f);
+                modScrollbar.Height.Set(modVisibleRows * ButtonModEntry.RowHeight, 0f);
+                modScrollbar.Left.Set(modRowLeft + gridWidth, 0f);
+                modScrollbar.Top.Set(modRowTop, 0f);
+                modScrollbar.SetView(modVisibleRows, modRowsPerColumn); // row units; ViewPosition in 0..maxRows
+                modScrollbar.ViewPosition = 0f;
+                Append(modScrollbar);
+            }
+            else if (modScrollbar != null)
+            {
+                RemoveChild(modScrollbar);
+            }
+
+            LayoutModRows();
+            modDropdownOpen = true;
+        }
+
+        /// <summary>
+        /// Places the dropdown rows for the current scroll offset, appending only those inside the visible
+        /// window and removing the rest. When nothing scrolls (<see cref="modScrollMaxRows"/> == 0) every
+        /// row is in view, so this lays out the full grid exactly like the non-scrolling case. Re-running it
+        /// (on each scroll step) removes a row before re-adding it, so it never double-appends.
+        /// </summary>
+        private void LayoutModRows()
+        {
             for (int i = 0; i < modEntries.Length; i++)
             {
-                int column = i / rowsPerColumn;
-                int row = i % rowsPerColumn;
-                modEntries[i].Left.Set(rowLeft + column * columnStride, 0f);
-                modEntries[i].Top.Set(rowTop + row * ButtonModEntry.RowHeight, 0f);
+                RemoveChild(modEntries[i]); // drop any previous placement first
+
+                int column = i / modRowsPerColumn;
+                int visibleRow = (i % modRowsPerColumn) - modScrollRows;
+                if (visibleRow < 0 || visibleRow >= modVisibleRows)
+                    continue; // scrolled out of view
+
+                modEntries[i].Left.Set(modRowLeft + column * modColumnStride, 0f);
+                modEntries[i].Top.Set(modRowTop + visibleRow * ButtonModEntry.RowHeight, 0f);
                 Append(modEntries[i]);
             }
-            modDropdownOpen = true;
         }
 
         /// <summary>Removes the dropdown rows. Safe to call when already closed.</summary>
@@ -694,6 +761,8 @@ namespace BannerCollector
         {
             if (modDropdownPanel != null)
                 RemoveChild(modDropdownPanel);
+            if (modScrollbar != null)
+                RemoveChild(modScrollbar);
             if (modEntries != null)
             {
                 foreach (var entry in modEntries)
@@ -765,6 +834,29 @@ namespace BannerCollector
                 Main.LocalPlayer.mouseInterface = true;
 
             UpdateWindowDrag(); // move the window if a drag is in progress (after element events ran)
+
+            // Scroll the mod dropdown when its columns are taller than the screen (fallback only - a normal
+            // list has modScrollMaxRows == 0 and is left untouched). The scrollbar (updated by base.Update
+            // above when dragged) is the source of truth; the wheel over the list nudges it one row per notch.
+            if (modDropdownOpen && modScrollMaxRows > 0 && modScrollbar != null)
+            {
+                if (modDropdownPanel != null && modDropdownPanel.ContainsPoint(Main.MouseScreen) && !modScrollbar.IsMouseHovering)
+                {
+                    int wheel = PlayerInput.ScrollWheelDeltaForUI;
+                    if (wheel != 0)
+                    {
+                        modScrollbar.ViewPosition -= Math.Sign(wheel);
+                        PlayerInput.ScrollWheelDeltaForUI = 0; // consume so the hotbar/zoom doesn't also react
+                    }
+                }
+
+                int target = Math.Clamp((int)Math.Round(modScrollbar.ViewPosition), 0, modScrollMaxRows);
+                if (target != modScrollRows)
+                {
+                    modScrollRows = target;
+                    LayoutModRows();
+                }
+            }
 
             // Close the mod dropdown when a fresh left click lands outside it (and outside the
             // button that toggles it). Uses own up->down edge detection rather than
