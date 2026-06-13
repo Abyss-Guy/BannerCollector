@@ -217,17 +217,29 @@ namespace BannerCollector
         public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
         {
             int mouseTextIndex = layers.FindIndex(layer => layer.Name.Equals("Vanilla: Mouse Text"));
+            if (mouseTextIndex == -1)
+                return; // no anchor for the window: draw nothing (as before) and install no half-paired blind
 
-            if (mouseTextIndex != -1)
-            {
-                layers.Insert(mouseTextIndex, new LegacyGameInterfaceLayer("BannerCollector: Banner UI",
-                     delegate {
-                         BannerInterface.Draw(Main.spriteBatch, new GameTime());
-                         return true;
-                     },
-                     InterfaceScaleType.UI)
-                 );
-            }
+            // Blind every HUD layer drawn below the window so nothing behind it can be clicked or hovered:
+            // the cursor is pushed off-screen here, as the first layer of the frame, and restored at the
+            // window's own layer just below (see BlockClickThroughModWindow). The two are always inserted together.
+            layers.Insert(0, new LegacyGameInterfaceLayer("BannerCollector: Block Behind Window",
+                 delegate {
+                     BlockClickThroughModWindow.BlindBelowWindow();
+                     return true;
+                 },
+                 InterfaceScaleType.UI)
+             );
+
+            // mouseTextIndex shifted by one because of the insert above.
+            layers.Insert(mouseTextIndex + 1, new LegacyGameInterfaceLayer("BannerCollector: Banner UI",
+                 delegate {
+                     BlockClickThroughModWindow.RestoreCursor(); // window, tooltips and the vanilla cursor draw at the true position
+                     BannerInterface.Draw(Main.spriteBatch, new GameTime());
+                     return true;
+                 },
+                 InterfaceScaleType.UI)
+             );
         }
     }
 }

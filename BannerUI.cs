@@ -724,6 +724,17 @@ namespace BannerCollector
             }
         }
 
+        /// <summary>
+        /// Whether the cursor is over the open collection window or its open mod dropdown. The panel
+        /// rectangle encloses every child (header buttons, slot grid and page dots), so this single test
+        /// covers the whole window. Shared by the world-interaction block (mouseInterface) and the
+        /// UI click-through block (<see cref="BlockClickThroughModWindow"/>).
+        /// </summary>
+        public bool IsMouseOverWindow()
+            => bannerCollectorVisible &&
+               (bannerPanel.ContainsPoint(Main.MouseScreen) ||
+                (modDropdownOpen && modDropdownPanel != null && modDropdownPanel.ContainsPoint(Main.MouseScreen)));
+
         public override void Update(GameTime gameTime)
         {
             // Keep the window in sync with the (now persistent) collection toggle: hide it when the
@@ -745,6 +756,13 @@ namespace BannerCollector
                 SortFilterList();
             }
             base.Update(gameTime);
+
+            // Block WORLD interaction (item use, tile/chest mining) while the cursor is over the window.
+            // Set here in Update so it lands before this frame's interaction check (the per-element Draw
+            // calls run too late). The vanilla item slots behind the window ignore this flag, so they are
+            // blocked separately by ItemSlotClickBlock.
+            if (IsMouseOverWindow())
+                Main.LocalPlayer.mouseInterface = true;
 
             UpdateWindowDrag(); // move the window if a drag is in progress (after element events ran)
 
