@@ -364,7 +364,7 @@ namespace BannerCollector
             base.Draw(spriteBatch);
 
             if (filterIndex == 0) { texture = BannerCollectorResources.Button_Filter; }
-            else { texture = BannerCollectorResources.Button_Filter; }
+            else { texture = BannerCollectorResources.Button_FilterOn; }
 
             Rectangle inner = GetInnerDimensions().ToRectangle();
 
@@ -491,7 +491,9 @@ namespace BannerCollector
 
             base.Draw(spriteBatch);
 
-            texture = BannerCollectorResources.Button_FilterMod;
+            texture = filterIndex == 0
+                ? BannerCollectorResources.Button_FilterMod
+                : BannerCollectorResources.Button_FilterModOn;
 
             Rectangle inner = GetInnerDimensions().ToRectangle();
 

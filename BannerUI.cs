@@ -739,6 +739,10 @@ namespace BannerCollector
             else if (toggle != null && toggle.CurrentState == 1 && !bannerCollectorVisible)
             {
                 BannerCollectorVisible = true;
+                // Re-sort and re-filter against the current banner counts so the order reflects any
+                // banners gained or spent while the window was closed (same refresh the sort/filter
+                // buttons trigger). Runs once on the open edge, never per frame.
+                SortFilterList();
             }
             base.Update(gameTime);
 

@@ -29,6 +29,7 @@ namespace BannerCollector.Resources
         public static Asset<Texture2D> Button_FilterHard;
         public static Asset<Texture2D> Button_FilterPostMoonLord;
         public static Asset<Texture2D> Button_FilterMod;
+        public static Asset<Texture2D> Button_FilterModOn;
         public static Asset<Texture2D> Button_Close;
         public static Asset<Texture2D> Pin_HardMode;
         public static Asset<Texture2D> Pin_PostMoonLoard;
@@ -53,6 +54,7 @@ namespace BannerCollector.Resources
             Button_FilterHard = RequestResource("UI_FilterHard");
             Button_FilterPostMoonLord = RequestResource("UI_FilterPostMoonLord");
             Button_FilterMod = RequestResource("UI_FilterMod");
+            Button_FilterModOn = RequestResource("UI_FilterModOn");
             Button_Close = RequestResource("UI_Close");
             Pin_HardMode = RequestResource("Pin_HardMode");
             Pin_PostMoonLoard = RequestResource("Pin_PostMoonLord");
