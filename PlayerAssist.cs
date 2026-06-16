@@ -9,13 +9,38 @@ using System.Windows.Forms;
 using Terraria;
 using Terraria.ID;
 using Terraria.IO;
+using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 
 namespace BannerCollector
 {
     internal static class PlayerAssist
     {
+        // Serialises every banner-data write. The collection is saved both from world-unload (main
+        // thread) and from the autosave (a background thread, via BannerAutosave), so the read +
+        // overwrite below must never run for two callers at once.
+        private static readonly object SaveLock = new object();
+
         // 데이터 저장
         public static void SavePlayerBannerData()
+        {
+            // Guard the write so it is thread-safe (autosave runs on a background thread) and can never
+            // throw out of the caller: a failed save leaves the previous file intact and the next
+            // autosave / exit simply retries, instead of crashing the player-save thread.
+            lock (SaveLock)
+            {
+                try
+                {
+                    WriteBannerData();
+                }
+                catch (Exception e)
+                {
+                    ModContent.GetInstance<BannerCollector>()?.Logger.Warn("Failed to save banner collection data: " + e);
+                }
+            }
+        }
+
+        private static void WriteBannerData()
         {
             Player player = Main.LocalPlayer; // 현재 로컬 플레이어 가져오기
             string playerName = player.name; // 플레이어 이름 가져오기
@@ -100,6 +125,32 @@ namespace BannerCollector
             string userDataPath = Path.Combine(documentsPath, "My Games", "Terraria", "tModLoader", "Players", "BannerData", playerName + ".json");
 
             return userDataPath;
+        }
+    }
+
+    /// <summary>
+    /// Persists the banner collection on Terraria's periodic autosave, not only on world exit. In
+    /// single-player the autosave saves the player every few minutes (Terraria's
+    /// <c>saveToonWhilePlaying</c> -> <c>Player.SavePlayer</c> -> this hook), so an unexpected exit
+    /// (crash, power loss) costs at most the progress since the last autosave instead of the whole
+    /// session - the same safety net vanilla item/inventory data already has. The collection counts
+    /// live in <see cref="PlayerAssist"/>'s own JSON file, so the player save tag is left untouched;
+    /// <see cref="PlayerAssist.SavePlayerBannerData"/> makes the write thread-safe because the autosave
+    /// runs this on a background thread.
+    /// </summary>
+    internal class BannerAutosave : ModPlayer
+    {
+        public override void SaveData(TagCompound tag)
+        {
+            if (!Main.dedServ)
+                PlayerAssist.SavePlayerBannerData();
+        }
+
+        public override void LoadData(TagCompound tag)
+        {
+            // Required by tModLoader to pair with SaveData. The collection is loaded from its own JSON
+            // file in BannerUISystem.OnWorldLoad (PlayerAssist.LoadPlayerBannerData), not from this tag,
+            // so there is nothing to read here.
         }
     }
 }
