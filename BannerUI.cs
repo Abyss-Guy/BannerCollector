@@ -790,6 +790,10 @@ namespace BannerCollector
             else
             {
                 BannerCollectorVisible = true;
+                // Refresh order/counts and list membership on open, so a banner gained or spent while
+                // the window was closed shows at once. Mirrors the inventory-open auto-show in Update;
+                // without it, opening the window from the toggle would keep the last-seen view.
+                SortFilterList();
             }
         }
 
